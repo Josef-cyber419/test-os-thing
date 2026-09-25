@@ -9,7 +9,7 @@
 #   color    tile color, e.g. "#1b2838"
 #   icon     path to a PNG shown on the tile
 #   requires commands that must exist on PATH, or the tile is hidden
-#   requires_files  files that must exist, or the tile is hidden
+#   requires_files  files that must exist, or the tile is hidden (globs and ~ allowed)
 #   confirm  ask "are you sure?" first (power actions)
 #   home_button  false = don't close the app when Guide is held (default true)
 #
@@ -32,9 +32,12 @@ title = "Play"
   color = "#1b2838"
 
   [[rows.apps]]
-  id = "retrodeck"
+  # ES-DE: one menu, a tile per console you've added games for.
+  # Installed per user by hearth-esde-update; see docs/EMULATION.md.
+  id = "emulation"
   name = "Emulation"
-  flatpak = "net.retrodeck.retrodeck"
+  command = "/usr/libexec/hearth/hearth-emulation"
+  requires_files = ["~/Applications/ES-DE.AppImage"]
   color = "#6b2fa0"
 
   [[rows.apps]]
@@ -42,6 +45,16 @@ title = "Play"
   name = "Moonlight"
   flatpak = "com.moonlight_stream.Moonlight"
   color = "#3c4a5c"
+
+  [[rows.apps]]
+  # A console (PS5, Switch 2, Xbox...) plugged into an Elgato capture card,
+  # shown full screen. Appears when the card is plugged in. For other brands,
+  # change the pattern here and set CAPTURE_DEVICE in /etc/hearth/capture.conf.
+  id = "hdmi-in"
+  name = "HDMI Input"
+  command = "/usr/libexec/hearth/hearth-capture"
+  requires_files = ["/dev/v4l/by-id/usb-Elgato*-video-index0"]
+  color = "#8a5a00"
 
 [[rows]]
 title = "Watch"

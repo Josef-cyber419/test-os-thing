@@ -1,0 +1,41 @@
+#!/usr/bin/bash
+# Show an HDMI capture card full screen with its audio, so a console plugged
+# into the card plays through this PC. Hold the controller's Guide button (or
+# press Home on the remote) to return to Hearth.
+set -uo pipefail
+
+CAPTURE_DEVICE='' CAPTURE_SIZE=1920x1080 CAPTURE_FPS=60 CAPTURE_FORMAT='' CAPTURE_AUDIO=''
+# shellcheck source=/dev/null
+[[ -r /etc/hearth/capture.conf ]] && . /etc/hearth/capture.conf
+
+device=$CAPTURE_DEVICE
+if [[ -z $device ]]; then
+    for d in /dev/v4l/by-id/usb-Elgato*-video-index0; do
+        [[ -e $d ]] && device=$d && break
+    done
+fi
+if [[ ! -e $device ]]; then
+    echo "hearth-capture: no capture card found; set CAPTURE_DEVICE in /etc/hearth/capture.conf" >&2
+    exit 1
+fi
+
+# The card's audio shows up as a separate input; play it through the speakers.
+source=$CAPTURE_AUDIO
+if [[ -z $source ]]; then
+    source=$(pactl list short sources | awk 'tolower($2) ~ /elgato/ && $2 !~ /\.monitor$/ { print $2; exit }')
+fi
+if [[ -n $source ]]; then
+    pw-loopback --capture-props="target.object=$source node.latency=256/48000" &
+    loopback=$!
+    trap 'kill "$loopback" 2>/dev/null' EXIT
+fi
+
+lavf_opts="video_size=$CAPTURE_SIZE,framerate=$CAPTURE_FPS"
+[[ -n $CAPTURE_FORMAT ]] && lavf_opts+=",input_format=$CAPTURE_FORMAT"
+
+# Low-latency playback: no buffering, show each frame as soon as it arrives.
+mpv "av://v4l2:$device" \
+    --demuxer-lavf-o="$lavf_opts" \
+    --profile=low-latency --untimed --cache=no \
+    --fullscreen --no-osc --osd-level=0 --really-quiet \
+    --title="HDMI Input"

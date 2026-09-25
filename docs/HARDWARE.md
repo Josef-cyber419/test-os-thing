@@ -52,7 +52,7 @@ big game downloads.
 
 ### Wii: Mayflash DolphinBar (~$30), yes, it's worth it
 A USB sensor bar with a built-in Bluetooth adapter for **real Wii Remotes**. In
-Dolphin (included in RetroDECK), put it in **mode 4** and use "Connect real Wii
+Dolphin, put it in **mode 4** and use "Connect real Wii
 Remotes". You get genuine pointer aiming, motion controls, speaker and rumble,
 with none of the Bluetooth pairing trouble. It also works as a sensor bar for
 Wii Remotes used as light guns in Wii rail shooters.
@@ -65,12 +65,34 @@ Old light guns only work with CRT TVs. Modern alternatives:
   latency, needs a small install.
 - **Retro Shooter RS3 Reaper**: prebuilt, IR-based, recoil options.
 
-Pair with RetroArch or MAME in RetroDECK for Time Crisis, House of the Dead,
+Pair with RetroArch or MAME for Time Crisis, House of the Dead,
 Duck Hunt, and so on.
 
 ### Arcade stick or retro-style pads
 8BitDo's retro receivers let original SNES/Genesis/PS controllers work
 wirelessly, which is great for authenticity.
+
+## Capture card: play real consoles through Hearth
+
+An Elgato capture card turns Hearth into the hub for **the consoles nobody can
+emulate yet**: PS5, Xbox Series, Switch 2. Plug the console into the card, and
+an **HDMI Input** tile appears on the home screen. It shows the console full
+screen with its sound, so everything runs through one HDMI cable and one
+home screen. (The card still works for recording or streaming too, e.g. with
+OBS from Desktop Mode.)
+
+- **Which card**: the USB models from HD60 S+ onward (**HD60 X**, **4K X**,
+  4K S) are standard video devices and work on Linux with no drivers. The 4K X
+  captures 4K60 HDR. Avoid Elgato's PCIe cards (4K60 Pro, 4K Pro): they have no
+  Linux drivers.
+- **Settings**: resolution, frame rate and device in `/etc/hearth/capture.conf`.
+  The default is 1080p60, the safe choice for HD60 X. Set `3840x2160` for a 4K X.
+- **Latency**: expect roughly 2–3 frames of added delay. That's fine for most
+  games. For competitive shooters or rhythm games, connect the card's
+  **HDMI passthrough** port to a second TV input instead, which has zero delay.
+- **HDCP**: capture only works without copy protection. On PS5, turn off
+  *Settings → System → HDMI → Enable HDCP*. Switch and Xbox games work as-is.
+  Streaming apps (Netflix etc.) on those consoles stay blocked, which is expected.
 
 ## Quality of life
 

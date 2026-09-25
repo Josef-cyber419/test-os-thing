@@ -7,6 +7,7 @@ home screen never requires rebuilding the OS image.
 
 from __future__ import annotations
 
+import glob
 import os
 import shlex
 import shutil
@@ -53,7 +54,8 @@ class App:
         """Hide tiles whose program isn't installed instead of failing on launch."""
         if self.flatpak and not any((d / self.flatpak).is_dir() for d in flatpak_dirs()):
             return False
-        if not all(Path(f).exists() for f in self.requires_files):
+        # Each entry may be a glob pattern and may start with ~.
+        if not all(glob.glob(os.path.expanduser(f)) for f in self.requires_files):
             return False
         return all(shutil.which(req) for req in self.requires)
 

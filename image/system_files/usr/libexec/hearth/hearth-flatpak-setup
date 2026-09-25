@@ -1,15 +1,17 @@
 #!/usr/bin/bash
-# Install Hearth's default apps from Flathub. Each app is attempted once:
-# if you uninstall one later, it stays uninstalled.
+# Install Hearth's default apps and emulators from Flathub. Each app is
+# attempted until it installs once; if you uninstall one later, it stays
+# uninstalled.
 set -uo pipefail
-list=/usr/share/hearth/flatpaks.list
 done_file=/var/lib/hearth/flatpaks-attempted
 mkdir -p "$(dirname "$done_file")"
 touch "$done_file"
 
 flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-grep -Ev '^\s*(#|$)' "$list" | while read -r app; do
+app_ids() { grep -Ev '^\s*(#|$)' "$@"; }
+
+app_ids /usr/share/hearth/flatpaks.list /usr/share/hearth/emulators.list | while read -r app; do
     grep -qxF "$app" "$done_file" && continue
     echo "Installing $app"
     if flatpak install --system --noninteractive --or-update flathub "$app"; then
@@ -17,4 +19,13 @@ grep -Ev '^\s*(#|$)' "$list" | while read -r app; do
     else
         echo "Failed to install $app; will retry next boot" >&2
     fi
+done
+
+# Emulators need to read games and BIOS files outside their sandbox,
+# including on other drives (Bazzite mounts those under /run/media or /var/mnt).
+app_ids /usr/share/hearth/emulators.list | while read -r app; do
+    flatpak override --system \
+        --filesystem='~/ROMs' --filesystem='~/BIOS' \
+        --filesystem=/run/media --filesystem=/var/mnt \
+        "$app"
 done

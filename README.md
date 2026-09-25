@@ -10,9 +10,10 @@ work with just a controller or a TV remote, with no keyboard or mouse needed.
 
 ```
  power on ──► Hearth home screen ──► Steam (Big Picture / Game Mode)
-                 ▲      │       ├──► Emulation (RetroDECK: ES-DE + emulators)
+                 ▲      │       ├──► Emulation (ES-DE: a tile per console, PS1 → Switch)
                  │      │       ├──► Kodi · YouTube · Jellyfin · Plex · Android
                  │      │       ├──► Moonlight (stream from another PC)
+                 │      │       ├──► HDMI Input (PS5/Switch 2 via capture card)
                  │      │       └──► Desktop Mode (KDE Plasma)
                  └──────┘  app exits, or hold the Guide button
 ```
@@ -27,7 +28,7 @@ Hearth doesn't write an OS from scratch. It **orchestrates** existing pieces:
 | Image | [`Containerfile`](Containerfile) | Hearth *is* a container image layered on Bazzite, built by CI and installed with `bootc switch` |
 | Session | [`/etc/gamescope-session-plus/sessions.d/`](image/system_files/etc/gamescope-session-plus/sessions.d) | Hearth replaces Steam as the first app in Bazzite's Game Mode and keeps every Game Mode setting |
 | Home screen | [`launcher/`](launcher) (Python + SDL2) | 10-foot UI, gamepad/remote/keyboard input, runs apps and returns home |
-| Apps | Flatpaks + small scripts in [`/usr/libexec/hearth`](image/system_files/usr/libexec/hearth) | Kodi, RetroDECK, Moonlight, VacuumTube (YouTube's TV interface), Jellyfin and Plex in TV mode |
+| Apps | Flatpaks + small scripts in [`/usr/libexec/hearth`](image/system_files/usr/libexec/hearth) | Kodi, ES-DE + emulators, Moonlight, VacuumTube (YouTube's TV interface), Jellyfin and Plex in TV mode |
 | Extras | HDMI-CEC, first-boot app installer | See below |
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -56,6 +57,8 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Getting started
 
+1. **Emulation**: see [docs/EMULATION.md](docs/EMULATION.md) for how the game
+   menu works, adding games, and which consoles run well.
 1. **Hardware**: see [docs/HARDWARE.md](docs/HARDWARE.md). An AMD GPU and a
    Pulse-Eight CEC adapter or FLIRC make the biggest difference.
 2. **Install**: see [docs/INSTALL.md](docs/INSTALL.md). You install Bazzite, then

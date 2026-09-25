@@ -12,7 +12,7 @@ like a smart TV or console. No keyboard, no mouse, no browser.
 | Jellyfin | Jellyfin Desktop in `--tv` mode | Yes. Needs a Jellyfin server (your NAS or another PC). |
 | Plex | Plex HTPC, Plex's TV app | Yes. |
 | Moonlight | Stream games from another PC | Yes. |
-| Emulation | RetroDECK (ES-DE + emulators) | Yes. |
+| Emulation | ES-DE + emulators, see [EMULATION.md](EMULATION.md) | Yes. |
 | Android | Android apps in a container (Waydroid) | Partly. See below. |
 
 ## Why no Netflix, Disney+, Prime Video, Max…

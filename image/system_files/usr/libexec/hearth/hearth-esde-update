@@ -1,0 +1,32 @@
+#!/usr/bin/bash
+# Install or update the ES-DE emulation frontend for the current user.
+# ES-DE isn't on Flathub; it's published as an AppImage, listed in a release
+# manifest in its repository. Runs from hearth-esde-update.timer.
+set -euo pipefail
+
+dest="$HOME/Applications/ES-DE.AppImage"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/hearth/esde-version"
+manifest_url=https://gitlab.com/es-de/emulationstation-de/-/raw/master/latest_release.json
+
+read -r version url md5 < <(curl -fsSL --retry 3 "$manifest_url" | python3 -c '
+import json, sys
+stable = json.load(sys.stdin)["stable"]
+pkg = next(p for p in stable["packages"] if p["name"] == "LinuxAppImage")
+print(stable["version"], pkg["url"], pkg["md5"])')
+
+# Where ES-DE looks for games, and where BIOS/firmware files go.
+mkdir -p "$HOME/ROMs" "$HOME/BIOS"
+
+if [[ -x $dest && -f $state && $(<"$state") == "$version" ]]; then
+    exit 0
+fi
+
+mkdir -p "$(dirname "$dest")" "$(dirname "$state")"
+tmp=$(mktemp "$dest.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
+curl -fsSL --retry 3 -o "$tmp" "$url"
+echo "$md5  $tmp" | md5sum --check --quiet -
+chmod 755 "$tmp"
+mv "$tmp" "$dest"
+echo "$version" > "$state"
+echo "Installed ES-DE $version"

@@ -45,7 +45,9 @@ where `sudo bootc rollback` is one command away.
 | `usr/libexec/hearth/shims/steamos-session-select` | On `PATH` for apps started by Hearth. Turns Steam's "Switch to Desktop" into "exit Steam → Hearth home". |
 | `usr/libexec/hearth/hearth-desktop` | Real Desktop Mode, via Bazzite's session switcher. |
 | `usr/libexec/hearth/hearth-cec` + udev/systemd units | Pulse-Eight USB-CEC: register as a playback device, wake/standby the TV on resume/suspend/shutdown. |
-| `usr/libexec/hearth/hearth-flatpak-setup` | First-boot Flathub installs from `flatpaks.list`. Each app is attempted until it succeeds once, then never again (so uninstalling sticks). |
+| `usr/libexec/hearth/hearth-esde-update` + user timer | Installs/updates the ES-DE AppImage in `~/Applications` (checksum-verified) and creates `~/ROMs` and `~/BIOS`. |
+| `usr/libexec/hearth/hearth-capture` | Full-screen, low-latency mpv view of an Elgato capture card, with its audio looped to the speakers via PipeWire. |
+| `usr/libexec/hearth/hearth-flatpak-setup` | First-boot Flathub installs from `flatpaks.list` and `emulators.list`, and gives emulators access to `~/ROMs`, `~/BIOS` and other drives. Each app is attempted until it succeeds once, then never again (so uninstalling sticks). |
 
 ### Why Python + SDL2 for the home screen?
 
@@ -76,14 +78,19 @@ These couldn't be tested without a real machine. Check them first, in this order
    performance overlay, sleep, game launching.
 4. **Steam → Switch to Desktop** reaches Hearth's shim (i.e. Steam finds
    `steamos-session-select` on `PATH`) and returns home.
-5. **Hold Guide** closes VacuumTube/Kodi/RetroDECK and returns home. The session user
+5. **Hold Guide** closes VacuumTube/Kodi/ES-DE and returns home. The session user
    needs read access to controller event devices. logind normally grants this
    to the active seat, but confirm it.
 6. **CEC**: TV remote keys arrive as arrow/Enter keys. Bazzite also runs
    steamos-manager's CEC service, so check the two don't conflict over `/dev/cec0`.
 7. **Remote in each app**: VacuumTube, Jellyfin (`--tv`) and Plex HTPC respond
    to the TV remote's keys (via CEC/FLIRC), not just a controller.
-8. **Android tile** appears after `ujust setup-waydroid` (it looks for
+8. **Emulation**: ES-DE starts full screen under gamescope, launches the
+   Flatpak emulators, and they can read games from `~/ROMs`, including when it's
+   a link to another drive.
+9. **HDMI Input**: mpv shows the card at the configured resolution, and the
+   audio loopback finds the card's input.
+10. **Android tile** appears after `ujust setup-waydroid` (it looks for
    `/var/lib/waydroid/waydroid.cfg`) and Bazzite's `waydroid-launcher` displays
    under Hearth's gamescope session.
 
@@ -92,7 +99,7 @@ These couldn't be tested without a real machine. Check them first, in this order
 - Real artwork: tile icons from each app's Flatpak metadata or SteamGridDB.
 - Settings tile: Wi-Fi, Bluetooth controller pairing, display/audio output, all
   with a controller.
-- "Continue playing" row: recent Steam games and RetroDECK saves.
+- "Continue playing" row: recent Steam games and recently played emulated games.
 - Phone remote: small web page / Home Assistant integration to launch tiles, wake
   the TV, or show what's playing.
 - Ambient mode: photo or clock screensaver after idle time on the home screen.

@@ -33,7 +33,7 @@ systemctl reboot
 ```
 
 After the reboot you land on the Hearth home screen. On first boot with
-networking, `hearth-flatpak-setup.service` installs Kodi, RetroDECK, Moonlight,
+networking, `hearth-flatpak-setup.service` installs Kodi, Moonlight, the emulators,
 VacuumTube (YouTube) and Jellyfin in the background. Their tiles appear as each install
 finishes, the next time you return to the home screen.
 
@@ -45,8 +45,9 @@ plain Bazzite.
 
 - **Steam**: open the Steam tile and sign in. Steam runs in the same console UI
   as Bazzite's normal Game Mode.
-- **Emulation**: open the Emulation tile. RetroDECK walks you through where to
-  keep ROMs and BIOS files. Only use games and BIOS files you own.
+- **Emulation**: ES-DE installs itself in the background shortly after first
+  login, then the Emulation tile appears. Add games from Desktop Mode. See
+  [EMULATION.md](EMULATION.md).
 - **YouTube**: opens YouTube's TV interface (via VacuumTube). Sign in with a
   code from your phone, the same way you would on a smart TV.
 - **Netflix, Disney+ and other paid services**: not included by default. See

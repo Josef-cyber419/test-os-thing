@@ -1,7 +1,6 @@
 # Flathub apps installed system-wide on first boot by hearth-flatpak-setup.service.
 # One app ID per line. Failures are logged and skipped, never fatal.
 tv.kodi.Kodi
-net.retrodeck.retrodeck
 com.moonlight_stream.Moonlight
 rocks.shy.VacuumTube
 org.jellyfin.JellyfinDesktop

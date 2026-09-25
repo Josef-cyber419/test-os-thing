@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+# ES-DE, the emulation menu: one entry per console that has games in ~/ROMs.
+# Emulators are separate Flatpaks (see /usr/share/hearth/emulators.list);
+# ES-DE finds them automatically.
+exec "$HOME/Applications/ES-DE.AppImage" "$@"

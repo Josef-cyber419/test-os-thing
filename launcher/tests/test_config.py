@@ -63,6 +63,16 @@ def test_requires_files(tmp_path):
     assert len(config.visible().rows) == 1
 
 
+def test_requires_files_glob_and_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    raw = {"id": "a", "name": "A", "command": "sh", "requires_files": "~/dev/usb-Elgato*-video-index0"}
+    config = cfg.parse({"rows": [{"apps": [raw]}]})
+    assert config.visible().rows == ()
+    (tmp_path / "dev").mkdir()
+    (tmp_path / "dev/usb-Elgato_Game_Capture_4K_X-video-index0").touch()
+    assert len(config.visible().rows) == 1
+
+
 def test_user_config_overrides_system(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     (tmp_path / "hearth").mkdir()
