@@ -8,16 +8,17 @@ automatically from then on.
 
 1. Push this repo to GitHub with `main` as the default branch. The
    [`build` workflow](../.github/workflows/build.yml) builds and pushes to
-   `ghcr.io/<your-github-user>/hearth-os` (AMD/Intel) and `hearth-os-nvidia`,
-   and rebuilds daily to pick up Bazzite updates.
+   `ghcr.io/<your-github-user>/hearth-os` (for AMD/Intel graphics), and
+   rebuilds daily to pick up Bazzite updates.
 2. GHCR packages start out private. Either make the package public
    (GitHub → your profile → Packages → hearth-os → Package settings → Change
    visibility), or run `sudo podman login ghcr.io` on the PC before switching.
 
 ## 2. Install Bazzite
 
-1. From [bazzite.gg](https://bazzite.gg), download the ISO for your GPU with
-   **Steam Gaming Mode** selected (the "deck" edition, which boots to Game Mode).
+1. From [bazzite.gg](https://bazzite.gg), download the ISO for **AMD** graphics
+   with **Steam Gaming Mode** selected (the "deck" edition, which boots to
+   Game Mode).
 2. In the firmware setup (BIOS): UEFI mode on. If you keep Secure Boot on,
    follow Bazzite's instructions to enroll its key during install.
 3. Install Bazzite. It erases the drive you pick.
@@ -28,7 +29,6 @@ In Bazzite's Desktop Mode, open a terminal (Konsole) and run:
 
 ```sh
 sudo bootc switch ghcr.io/<your-github-user>/hearth-os:latest
-# NVIDIA:  ghcr.io/<your-github-user>/hearth-os-nvidia:latest
 systemctl reboot
 ```
 

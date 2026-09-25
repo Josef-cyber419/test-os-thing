@@ -4,18 +4,17 @@ Ordered roughly by how much it improves a living-room PC for the money.
 
 ## Must-haves
 
-### GPU: AMD if you have the choice
-Bazzite's Game Mode (gamescope) works best on AMD Radeon: HDR, VRR, and the
-Steam Deck-style performance overlay all work with the open-source drivers.
-NVIDIA works with the `hearth-os-nvidia` image but has historically had more
-gamescope issues. Intel Arc works but is less tested.
+### GPU: AMD
+Hearth is built for AMD Radeon. Bazzite's Game Mode (gamescope) works best
+there: HDR, VRR, and the Steam Deck-style performance overlay all work with
+the open-source drivers. Intel Arc works but is less tested. NVIDIA isn't
+supported.
 
 **The HDMI 2.1 catch (AMD):** the HDMI Forum doesn't allow HDMI 2.1 in AMD's
 open-source Linux driver, so AMD's HDMI port tops out at HDMI 2.0 (4K60, no 4K120,
 no HDMI-VRR). If you want 4K120 with HDR on a TV, use the card's **DisplayPort
 output with an active DP 1.4 → HDMI 2.1 adapter**. Cable Matters' adapter is the
 one most people use; update its firmware. VRR through adapters is hit or miss.
-NVIDIA's driver does support HDMI 2.1 directly.
 
 ### A way to use your TV remote: Pulse-Eight USB-CEC adapter (~$40)
 PC graphics cards don't support HDMI-CEC, the protocol that lets TVs and
