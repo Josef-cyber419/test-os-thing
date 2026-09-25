@@ -28,6 +28,10 @@ KEYS = {
     pygame.K_AC_BACK: Nav.BACK,
     pygame.K_MENU: Nav.MENU,
     pygame.K_TAB: Nav.MENU,
+    pygame.K_q: Nav.TAB_PREV,
+    pygame.K_e: Nav.TAB_NEXT,
+    pygame.K_PAGEUP: Nav.TAB_PREV,
+    pygame.K_PAGEDOWN: Nav.TAB_NEXT,
 }
 
 BUTTONS = {
@@ -39,10 +43,12 @@ BUTTONS = {
     pygame.CONTROLLER_BUTTON_B: Nav.BACK,
     pygame.CONTROLLER_BUTTON_START: Nav.MENU,
     pygame.CONTROLLER_BUTTON_GUIDE: Nav.MENU,
+    pygame.CONTROLLER_BUTTON_LEFTSHOULDER: Nav.TAB_PREV,
+    pygame.CONTROLLER_BUTTON_RIGHTSHOULDER: Nav.TAB_NEXT,
 }
 
 # Fallback for devices SDL has no GameController mapping for (Linux xpad layout).
-JOY_BUTTONS = {0: Nav.SELECT, 1: Nav.BACK, 7: Nav.MENU}
+JOY_BUTTONS = {0: Nav.SELECT, 1: Nav.BACK, 4: Nav.TAB_PREV, 5: Nav.TAB_NEXT, 7: Nav.MENU}
 
 AXIS_THRESHOLD = 0.6
 AXIS_REPEAT_DELAY_MS = 400

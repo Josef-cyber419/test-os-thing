@@ -12,6 +12,7 @@ firmware (UEFI) ──► GRUB ──► Bazzite (Fedora Atomic, Hearth image)
                    │  then    /etc/gamescope-session-plus/sessions.d/<session>         (Hearth's: CLIENTCMD=/usr/bin/hearth)
                    ▼
                    gamescope (compositor: HDR, VRR, scaling) ──► hearth (session hub)
+                                                                  ├──► hearth.overlay (Quick Menu, window tagging)
                                                                   │
                              ┌────────────────────────────────────┤ loop:
                              │  1. show home screen (pygame/SDL2)  │
@@ -31,11 +32,53 @@ seconds five times in a row, it resets to the desktop session. So a broken
 Hearth update can't leave you with a black screen; you land in Desktop Mode,
 where `sudo bootc rollback` is one command away.
 
+## Talking to gamescope
+
+In Game Mode, gamescope runs with `--steam`, and Steam normally does two jobs
+Hearth now does itself (read from gamescope's `steamcompmgr.cpp`):
+
+- **Which windows can be shown.** Only windows with a `STEAM_GAME` app ID can
+  be focused. The overlay process tags every new window with its app's ID
+  (from the window's PID, traced via the X-Resource extension to its systemd
+  scope; or its `WM_CLASS`). The home screen tags its own window.
+- **Which app is in front.** Setting `GAMESCOPECTRL_BASELAYER_APPID` on the
+  root window picks it. Hearth sets it when switching between home, the
+  running app and background apps like Discord. It removes it while Steam is
+  in front, so Steam can manage focus itself.
+
+The **Quick Menu** is a `STEAM_OVERLAY` window, the same kind as Steam's Quick
+Access menu. gamescope draws it above everything; `STEAM_INPUT_FOCUS` gives it
+input while open; `_NET_WM_WINDOW_OPACITY` hides it. It uses a 32-bit (ARGB)
+visual and the SDL renderer, so it has real per-pixel transparency and the
+game shows through.
+
+## Apps run in systemd scopes
+
+Each app Hearth starts runs in its own systemd user scope
+(`hearth-app-<id>_<n>.scope`, or `hearth-bg-…` for background apps). A scope
+covers the app and everything it spawns, including Flatpak sandboxes, which
+start their own sessions and would escape a process group. That enables:
+- **Pause**: the Quick Menu freezes the game's cgroup while it's open
+  (`systemctl --user freeze`) and thaws it on close. Turn this off with
+  `[quick_menu] pause_game = false` in `apps.toml`.
+- **Close**: "Close <game>" and holding Guide stop the whole scope.
+- **Window ownership**: `/proc/<pid>/cgroup` names the scope, so the app ID.
+
+State shared between the hub and the overlay lives in
+`$XDG_RUNTIME_DIR/hearth/state.json` (what's in front, what's running, whether
+the menu is open), written under a file lock.
+
 ## Components
 
 | Path | Role |
 |---|---|
-| `launcher/hearth/hub.py` | Main loop. Loads config, shows the home screen, runs the chosen app in its own process group, shows an error if it fails to start. |
+| `launcher/hearth/hub.py` | Main loop. Loads config, shows the home screen, runs the chosen app in its own scope, starts background apps, keeps the overlay running, shows an error if an app fails to start. |
+| `launcher/hearth/overlay.py` | Quick Menu process: Guide gestures, open/close and pause, window tagging, controller-as-mouse for background apps. |
+| `launcher/hearth/quickmenu.py` / `quickmenu_view.py` | Quick Menu contents and actions (tested without a display) / its drawing. |
+| `launcher/hearth/audio.py` | Output/input devices, volumes and per-app streams via `pactl -f json` (PipeWire). |
+| `launcher/hearth/gamescope.py` | X11 properties: `STEAM_GAME` tags, `GAMESCOPECTRL_BASELAYER_APPID` focus, overlay flags. |
+| `launcher/hearth/session.py` | Shared state file, systemd scopes (spawn, freeze, thaw, stop), which app owns a PID. |
+| `launcher/hearth/pointer.py` | Controller → virtual mouse/keyboard (uinput) for apps without a TV interface. |
 | `launcher/hearth/ui.py` | Rendering (tiles, rows, header, confirm dialog). Sizes derived from screen height. |
 | `launcher/hearth/model.py` | Navigation state (rows remember their column). No pygame, easy to test. |
 | `launcher/hearth/input.py` | Keyboard / CEC / FLIRC / gamepad → `Nav` actions, stick auto-repeat. |
@@ -69,11 +112,10 @@ These couldn't be tested without a real machine. Check them first, in this order
 
 1. **The image builds** against current `bazzite-deck:stable`. `image/build.sh`
    fails loudly if Bazzite's Game Mode session isn't one Hearth overrides.
-2. **Hearth appears in Game Mode.** gamescope's `--steam` integration mode
-   normally takes focus hints from Steam. Confirm Hearth's window is shown and gets
-   controller input when Steam isn't running. If not, a likely fix is
-   setting the `STEAM_GAME` X property on Hearth's window, or running Hearth under
-   a non-`--steam` gamescope.
+2. **Hearth and its apps appear in Game Mode.** Hearth tags windows with
+   `STEAM_GAME` and picks the front app with `GAMESCOPECTRL_BASELAYER_APPID`,
+   as Steam does. (Tested against Xvfb, but not against gamescope itself.)
+   Confirm the home screen, Kodi, ES-DE and Discord each come to the front.
 3. **Steam from the tile** behaves like normal Game Mode: Quick Access menu,
    performance overlay, sleep, game launching.
 4. **Steam → Switch to Desktop** reaches Hearth's shim (i.e. Steam finds
@@ -90,7 +132,14 @@ These couldn't be tested without a real machine. Check them first, in this order
    a link to another drive.
 9. **HDMI Input**: mpv shows the card at the configured resolution, and the
    audio loopback finds the card's input.
-10. **Android tile** appears after `ujust setup-waydroid` (it looks for
+10. **Quick Menu**: tapping Guide shows it over a game, with the game visible
+    through it; the game pauses (the user systemd manager can freeze scopes)
+    and resumes; audio device switching and per-app volume work through
+    `pactl`; closing a game from it returns home.
+11. **Discord**: starts in the background, comes to the front from the menu,
+    the controller moves a pointer there (needs write access to
+    `/dev/uinput`), and mute/deafen affect its call.
+12. **Android tile** appears after `ujust setup-waydroid` (it looks for
    `/var/lib/waydroid/waydroid.cfg`) and Bazzite's `waydroid-launcher` displays
    under Hearth's gamescope session.
 

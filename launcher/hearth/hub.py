@@ -2,63 +2,68 @@
 
 This runs as the client of the Game Mode (gamescope) session. The home screen
 releases the display before an app starts so the app gets the whole screen,
-then comes back when the app exits.
+then comes back when the app exits. Background apps (Discord) are started
+and brought to the front without leaving the home screen.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import logging
 import os
+import shutil
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 import pygame
 
 from . import config as cfg
-from . import homebutton, ui
+from . import homebutton, session, ui
+from .gamescope import HOME_APPID, Gamescope
 from .model import Home
 
 log = logging.getLogger("hearth")
 
-SHIM_DIR = Path("/usr/libexec/hearth/shims")
 # An app that dies this quickly with an error most likely failed to start.
 QUICK_FAIL_SECONDS = 3
 # Grace period between asking an app to quit and killing it.
 TERM_TIMEOUT_SECONDS = 5
 
 
-def app_env() -> dict[str, str]:
-    env = dict(os.environ)
-    # Shims (e.g. steamos-session-select) make "exit" inside apps land back home.
-    if SHIM_DIR.is_dir():
-        env["PATH"] = f"{SHIM_DIR}:{env.get('PATH', '')}"
-    env["HEARTH_SESSION"] = "1"
-    return env
-
-
-def launch(app: cfg.App, dry_run: bool = False) -> str | None:
+def launch(app: cfg.App, dry_run: bool = False, gs: Gamescope | None = None) -> str | None:
     """Run an app to completion. Returns an error message for the home screen."""
     log.info("launching %s: %s", app.id, " ".join(app.command))
     if dry_run:
         print("would run:", " ".join(app.command), flush=True)
         return None
+    if not shutil.which(app.command[0]):
+        return f"Couldn't start {app.name}: {app.command[0]} not found"
     started = time.monotonic()
     try:
-        # Own process group, so "go home" can close the app and all its children.
-        proc = subprocess.Popen(app.command, env=app_env(), start_new_session=True)
+        proc, unit = session.spawn("app", app.id, app.command)
     except OSError as e:
         log.error("failed to start %s: %s", app.id, e)
         return f"Couldn't start {app.name}: {e.strerror or e}"
+
+    info = {"id": app.id, "name": app.name, "unit": unit, "pid": proc.pid,
+            "home_button": app.home_button, "tag_windows": app.tag_windows}
+    state = session.update(lambda s: s.update(foreground=info, focus="foreground"))
+    if gs:
+        gs.show_app(session.focus_appid(state))
 
     sent_home = False
 
     def go_home() -> None:
         nonlocal sent_home
+        current = session.read()
+        if current["focus"] in current["background"]:
+            return  # Discord etc. is in front: the overlay handles this hold
         sent_home = True
-        stop_process_group(proc)
+        stop_app(proc, unit)
 
     watcher = homebutton.Watcher(go_home) if app.home_button else None
     if watcher:
@@ -68,6 +73,7 @@ def launch(app: cfg.App, dry_run: bool = False) -> str | None:
     finally:
         if watcher:
             watcher.stop()
+        session.update(lambda s: s.update(foreground=None, focus="home", paused=False))
     if sent_home:
         return None
     elapsed = time.monotonic() - started
@@ -75,6 +81,15 @@ def launch(app: cfg.App, dry_run: bool = False) -> str | None:
     if returncode != 0 and elapsed < QUICK_FAIL_SECONDS:
         return f"{app.name} closed unexpectedly (exit code {returncode})"
     return None
+
+
+def stop_app(proc: subprocess.Popen, unit: str | None) -> None:
+    """Close the app and everything it started (thawing it first if paused)."""
+    if unit:
+        session.thaw(unit)
+        if session.stop(unit):
+            return
+    stop_process_group(proc)
 
 
 def stop_process_group(proc: subprocess.Popen) -> None:
@@ -93,6 +108,14 @@ def stop_process_group(proc: subprocess.Popen) -> None:
         signal_group(signal.SIGKILL)
 
 
+def show_background(app: cfg.App, gs: Gamescope | None) -> None:
+    """Start a background app if needed and bring it to the front."""
+    session.start_background(app)
+    state = session.update(lambda s: s.__setitem__("focus", app.id))
+    if gs:
+        gs.show_app(session.focus_appid(state))
+
+
 def open_display(windowed: bool) -> pygame.Surface:
     pygame.display.init()
     pygame.font.init()
@@ -104,18 +127,51 @@ def open_display(windowed: bool) -> pygame.Surface:
     return pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 
+def show_home(gs: Gamescope | None) -> None:
+    """Tag the home screen's window and bring it to the front."""
+    if not gs:
+        return
+    wid = pygame.display.get_wm_info().get("window")
+    if wid:
+        gs.tag(gs.window(wid), HOME_APPID)
+    gs.show_app(session.focus_appid(session.read()))
+
+
+class OverlayProcess:
+    """Keeps the Quick Menu overlay running next to the hub."""
+
+    def __init__(self, config_path: Path | None) -> None:
+        self.args = [sys.executable, "-m", "hearth.overlay"]
+        if config_path:
+            self.args += ["--config", str(config_path)]
+        self.proc: subprocess.Popen | None = None
+
+    def ensure(self) -> None:
+        if self.proc is None or self.proc.poll() is not None:
+            self.proc = subprocess.Popen(self.args)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hearth", description="Hearth TV home screen")
     parser.add_argument("--config", type=Path, help="apps.toml to use (default: user, then system)")
     parser.add_argument("--windowed", action="store_true", help="run in a 1280x720 window (development)")
     parser.add_argument("--dry-run", action="store_true", help="print commands instead of running them")
     parser.add_argument("--show-all", action="store_true", help="show tiles even if the app isn't installed")
+    parser.add_argument("--overlay", action=argparse.BooleanOptionalAction, default=None,
+                        help="run the Quick Menu overlay (default: on under gamescope)")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="hearth: %(message)s")
+
+    in_gamescope = bool(os.environ.get("GAMESCOPE_WAYLAND_DISPLAY"))
+    gs = Gamescope.connect() if in_gamescope else None
+    overlay = OverlayProcess(args.config) if (args.overlay if args.overlay is not None else in_gamescope) else None
+    # Fresh session: nothing in front, but keep background apps that survived a restart.
+    session.update(lambda s: s.update(copy.deepcopy(session.DEFAULT_STATE), background=s["background"]))
 
     dev_mode = args.windowed or args.dry_run
     last_id: str | None = None
     message: str | None = None
+    surface: pygame.Surface | None = None
     while True:
         try:
             config = cfg.load(args.config)
@@ -125,17 +181,30 @@ def main(argv: list[str] | None = None) -> int:
             message = f"Config error: {e}"
         if not args.show_all:
             config = config.visible()
+        if overlay:
+            overlay.ensure()
 
         home = Home(config)
         if last_id:
             home.select_id(last_id)
 
-        surface = open_display(args.windowed)
-        app = ui.run(surface, home, config.title, message=message, allow_quit=dev_mode)
-        # Release the screen (and input devices) so the app gets them.
-        pygame.quit()
-
+        if surface is None:
+            surface = open_display(args.windowed)
+        show_home(gs)
+        app = ui.run(surface, home, config.title, message=message, allow_quit=dev_mode,
+                     input_blocked=lambda: session.read()["overlay_open"])
+        message = None
         if app is None:
             return 0
         last_id = app.id
-        message = launch(app, dry_run=args.dry_run)
+
+        if app.background and not args.dry_run:
+            # The home screen stays open behind it; the Quick Menu or a held
+            # Guide button brings it back.
+            show_background(app, gs)
+            continue
+
+        # Release the screen (and input devices) so the app gets them.
+        pygame.quit()
+        surface = None
+        message = launch(app, dry_run=args.dry_run, gs=gs)

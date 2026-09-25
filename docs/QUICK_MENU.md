@@ -1,0 +1,59 @@
+# Quick Menu
+
+**Tap the Guide button** (Xbox / PS / Home button) in any app, or on the home
+screen, and the Quick Menu slides in over what's playing. The game shows
+through behind it and is paused until you close the menu. A remote's **Menu**
+key (e.g. programmed on a FLIRC) opens it too.
+
+| Button | Does |
+|---|---|
+| LB / RB | Switch tabs |
+| Up / Down | Choose an entry |
+| Left / Right | Adjust a slider, change a device |
+| A | Toggle, mute a slider, run an action |
+| B, Start, or tap Guide | Close |
+
+**Hold Guide** (1.5 s) to close the current app and go home, or to leave
+Discord and go back to your game.
+
+## Tabs
+
+- **Audio**: volume of the current output, which **output** to use (TV
+  speakers, soundbar, headset…), which **microphone**, mic level, mute mic.
+  Switching output also moves everything already playing to it.
+- **Mixer**: a volume slider for each app playing sound, e.g. game,
+  Discord voice, music. A mutes that app.
+- **Discord**: start Discord in the background, bring it to the front ("Show
+  Discord"), and while you're in a call: **mute my mic**, **deafen**, **voice
+  volume**. The call controls work at the audio level, so they work with
+  Discord hidden.
+- **System**: resume, close the current app, sleep, restart, power off.
+  Anything that ends what you're doing asks you to press A again.
+
+## Discord with a controller
+
+Discord has no TV interface, so while it's in front your controller works as a
+mouse:
+
+| Control | Does |
+|---|---|
+| Left stick | Move the pointer (push further to go faster) |
+| Right stick | Scroll |
+| A / X | Left / right click |
+| D-pad | Arrow keys |
+| Y / B | Enter / Escape |
+
+Join a voice channel, then tap Guide → Discord → *Back to <game>*. The call
+keeps going in the background.
+
+## Settings
+
+In `~/.config/hearth/apps.toml` (copy it from `/usr/share/hearth/apps.toml`):
+
+```toml
+[quick_menu]
+pause_game = false  # keep the game running while the menu is open
+```
+
+Steam keeps its own Guide-button menu (Quick Access), so tapping Guide in Steam
+opens Steam's menu rather than Hearth's.

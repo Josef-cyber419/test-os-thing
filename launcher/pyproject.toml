@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "TV-style home screen and session hub for a living-room PC"
 requires-python = ">=3.11"
 # Fedora ships this as python3-pygame; pygame-ce works as a drop-in for development.
-dependencies = ["pygame-ce>=2.4"]
+dependencies = [
+    "pygame-ce>=2.4",
+    "python-xlib>=0.33",  # gamescope window properties (Fedora: python3-xlib)
+    "evdev>=1.6",  # Guide button and controller pointer (Fedora: python3-evdev)
+]
 
 [project.optional-dependencies]
 dev = ["pytest"]

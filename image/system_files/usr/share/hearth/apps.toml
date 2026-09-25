@@ -12,12 +12,21 @@
 #   requires_files  files that must exist, or the tile is hidden (globs and ~ allowed)
 #   confirm  ask "are you sure?" first (power actions)
 #   home_button  false = don't close the app when Guide is held (default true)
+#   background   keeps running while you use other apps (e.g. Discord)
+#   pointer      the controller drives a mouse pointer while the app is shown
+#   wm_class     the app's X11 window class, to recognise its windows
+#   tag_windows  false for apps that manage gamescope focus themselves (Steam)
 #
 # Tiles whose flatpak or required command isn't installed are hidden
 # automatically, so it's fine to list apps you haven't installed yet.
 # The last row is where the controller's Start/Menu button jumps to.
 
 title = "Hearth"
+
+# The Quick Menu (tap the Guide button): audio, per-app volume, Discord, power.
+[quick_menu]
+# Pause the game while the menu is open, like a console's home menu.
+pause_game = true
 
 [[rows]]
 title = "Play"
@@ -27,8 +36,10 @@ title = "Play"
   name = "Steam"
   command = "/usr/libexec/hearth/hearth-steam"
   requires = ["steam"]
-  # Steam uses the Guide button itself; leave via Steam's "Switch to Desktop".
+  # Steam uses the Guide button itself (its own Quick Access menu), and
+  # manages gamescope focus itself. Leave via Steam's "Switch to Desktop".
   home_button = false
+  tag_windows = false
   color = "#1b2838"
 
   [[rows.apps]]
@@ -45,6 +56,17 @@ title = "Play"
   name = "Moonlight"
   flatpak = "com.moonlight_stream.Moonlight"
   color = "#3c4a5c"
+
+  [[rows.apps]]
+  # Runs in the background while you play; the Quick Menu's Discord tab
+  # mutes/deafens and switches to it. The controller works as a mouse there.
+  id = "discord"
+  name = "Discord"
+  flatpak = "com.discordapp.Discord"
+  background = true
+  pointer = true
+  wm_class = "discord"
+  color = "#5865f2"
 
   [[rows.apps]]
   # A console (PS5, Switch 2, Xbox...) plugged into an Elgato capture card,

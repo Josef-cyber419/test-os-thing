@@ -5,11 +5,12 @@ set -euxo pipefail
 
 # --- packages -----------------------------------------------------------------
 #   python3-pygame     Hearth's UI (SDL2: gamepads, fullscreen, fonts)
-#   python3-evdev      "hold Guide to go home" button watcher
+#   python3-evdev      Guide button gestures, controller-as-mouse (uinput)
+#   python3-xlib       gamescope window properties: focus, overlay, app tags
 #   v4l-utils          cec-ctl, for HDMI-CEC TV control
 #   linuxconsoletools  inputattach, for the Pulse-Eight USB-CEC adapter
 #   mpv                low-latency full-screen view of an HDMI capture card
-dnf5 -y install python3-pygame python3-evdev v4l-utils linuxconsoletools mpv
+dnf5 -y install python3-pygame python3-evdev python3-xlib v4l-utils linuxconsoletools mpv
 
 # --- check that Game Mode will actually start Hearth ------------------------
 # Hearth hooks in through /etc/gamescope-session-plus/sessions.d/<session>,

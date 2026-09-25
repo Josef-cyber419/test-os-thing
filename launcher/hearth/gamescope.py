@@ -1,0 +1,156 @@
+"""Talking to gamescope through X11 window properties.
+
+In Game Mode, gamescope runs with --steam, where only windows carrying a
+STEAM_GAME app ID can be focused, and the root window's
+GAMESCOPECTRL_BASELAYER_APPID picks which app is shown. Steam normally does
+both; Hearth does them for itself and the apps it launches. The Quick Menu is
+a STEAM_OVERLAY window: drawn above everything, and given input with
+STEAM_INPUT_FOCUS. (See gamescope's steamcompmgr.cpp.)
+
+Every function here is a no-op when there's no X display or python-xlib.
+"""
+
+from __future__ import annotations
+
+import logging
+import zlib
+
+log = logging.getLogger("hearth")
+
+try:
+    from Xlib import X, Xatom, display as xdisplay
+    from Xlib.error import XError
+except ImportError:  # pragma: no cover - depends on the system
+    xdisplay = None
+
+# App IDs for windows Hearth tags. Real Steam app IDs are below ~5M, and
+# non-Steam shortcuts have the top bit set, so this range is free.
+HOME_APPID = 0x4E480000
+OPAQUE = 0xFFFFFFFF
+
+
+def appid_for(app_id: str) -> int:
+    return HOME_APPID + 1 + zlib.crc32(app_id.encode()) % 0xFFFE
+
+
+class Gamescope:
+    def __init__(self, dpy) -> None:
+        self.d = dpy
+        self.root = dpy.screen().root
+        self._atoms: dict[str, int] = {}
+
+    @classmethod
+    def connect(cls, name: str | None = None) -> "Gamescope | None":
+        if xdisplay is None:
+            return None
+        try:
+            return cls(xdisplay.Display(name))
+        except Exception as e:  # no display, auth failure...
+            log.info("gamescope: no X display (%s)", e)
+            return None
+
+    def atom(self, name: str) -> int:
+        if name not in self._atoms:
+            self._atoms[name] = self.d.intern_atom(name)
+        return self._atoms[name]
+
+    def window(self, wid: int):
+        return self.d.create_resource_object("window", wid)
+
+    def _set_cardinals(self, win, name: str, values: list[int]) -> None:
+        win.change_property(self.atom(name), Xatom.CARDINAL, 32, values)
+
+    def get_cardinal(self, win, name: str) -> int | None:
+        try:
+            prop = win.get_full_property(self.atom(name), X.AnyPropertyType)
+        except XError:
+            return None
+        return int(prop.value[0]) if prop and len(prop.value) else None
+
+    # -- windows ---------------------------------------------------------------
+
+    def argb_visual(self) -> int | None:
+        """A 32-bit TrueColor visual, for windows with real transparency."""
+        for depth in self.d.screen().allowed_depths:
+            if depth.depth == 32:
+                for visual in depth.visuals:
+                    if visual.visual_class == X.TrueColor:
+                        return visual.visual_id
+        return None
+
+    def top_level_windows(self) -> list:
+        try:
+            return list(self.root.query_tree().children)
+        except XError:
+            return []
+
+    def window_title(self, win) -> str | None:
+        """_NET_WM_NAME (UTF-8, what SDL and most toolkits set) or WM_NAME."""
+        try:
+            prop = win.get_full_property(self.atom("_NET_WM_NAME"), self.atom("UTF8_STRING"))
+            if prop and prop.value:
+                value = prop.value
+                return value.decode("utf-8", "replace") if isinstance(value, bytes) else str(value)
+            name = win.get_wm_name()
+            return name.decode("latin-1") if isinstance(name, bytes) else name
+        except XError:
+            return None
+
+    def find_window(self, title: str):
+        for win in self.top_level_windows():
+            if self.window_title(win) == title:
+                return win
+        return None
+
+    def wm_class(self, win) -> tuple[str, str] | None:
+        try:
+            return win.get_wm_class()
+        except XError:
+            return None
+
+    def client_pid(self, win) -> int | None:
+        """PID of the process that owns a window, as seen from the host.
+
+        Prefers the X-Resource extension (correct even for sandboxed Flatpak
+        apps, whose _NET_WM_PID is from inside their PID namespace)."""
+        try:
+            from Xlib.ext import res
+
+            if self.d.has_extension("X-Resource"):
+                reply = self.d.res_query_client_ids([{"client": win.id, "mask": res.LocalClientPIDMask}])
+                for cid in reply.ids:
+                    if cid.value:
+                        return int(cid.value[0])
+        except Exception:
+            pass
+        return self.get_cardinal(win, "_NET_WM_PID")
+
+    def tag(self, win, appid: int) -> None:
+        """Give a window an app ID so gamescope can focus it."""
+        self._set_cardinals(win, "STEAM_GAME", [appid])
+        self.d.flush()
+
+    def is_tagged(self, win) -> bool:
+        return bool(self.get_cardinal(win, "STEAM_GAME"))
+
+    # -- focus -----------------------------------------------------------------
+
+    def show_app(self, appid: int | None) -> None:
+        """Bring an app to the front; None hands focus back to gamescope/Steam."""
+        if appid is None:
+            self.root.delete_property(self.atom("GAMESCOPECTRL_BASELAYER_APPID"))
+        else:
+            self._set_cardinals(self.root, "GAMESCOPECTRL_BASELAYER_APPID", [appid])
+        self.d.flush()
+
+    # -- overlay ---------------------------------------------------------------
+
+    def make_overlay(self, win) -> None:
+        self._set_cardinals(win, "STEAM_OVERLAY", [1])
+        self.set_overlay_visible(win, False)
+
+    def set_overlay_visible(self, win, visible: bool, opacity: float = 1.0) -> None:
+        self._set_cardinals(win, "_NET_WM_WINDOW_OPACITY", [int(OPAQUE * opacity) if visible else 0])
+        # 1 = the overlay gets keyboard/mouse input, like Steam's Quick Access menu.
+        self._set_cardinals(win, "STEAM_INPUT_FOCUS", [1 if visible else 0])
+        self.d.flush()

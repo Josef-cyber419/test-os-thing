@@ -49,6 +49,16 @@ class App:
     # Holding the controller's Guide button returns home (off for apps like
     # Steam that use the Guide button themselves).
     home_button: bool = True
+    # Keeps running while you use other apps; shown and hidden from the Quick
+    # Menu (e.g. Discord). Launching its tile starts it if needed and shows it.
+    background: bool = False
+    # Controller drives a mouse pointer while this app is in front.
+    pointer: bool = False
+    # X11 WM_CLASS, to recognise the app's windows if its process can't be traced.
+    wm_class: str | None = None
+    # Hearth tags the app's windows so gamescope will show them. Off for Steam,
+    # which does this itself.
+    tag_windows: bool = True
 
     def available(self) -> bool:
         """Hide tiles whose program isn't installed instead of failing on launch."""
@@ -70,6 +80,11 @@ class Row:
 class Config:
     title: str = "Hearth"
     rows: tuple[Row, ...] = field(default_factory=tuple)
+    # Freeze the game while the Quick Menu is open, like a console's home menu.
+    pause_game: bool = True
+
+    def app(self, app_id: str) -> App | None:
+        return next((a for row in self.rows for a in row.apps if a.id == app_id), None)
 
     def visible(self) -> Config:
         """Config with unavailable apps (and rows left empty) removed."""
@@ -78,7 +93,7 @@ class Config:
             apps = tuple(a for a in row.apps if a.available())
             if apps:
                 rows.append(Row(row.title, apps))
-        return Config(self.title, tuple(rows))
+        return Config(self.title, tuple(rows), self.pause_game)
 
 
 def _parse_command(raw: dict, where: str) -> tuple[str, ...]:
@@ -119,6 +134,10 @@ def _parse_app(raw: dict, where: str) -> App:
         flatpak=raw.get("flatpak"),
         confirm=bool(raw.get("confirm", False)),
         home_button=bool(raw.get("home_button", True)),
+        background=bool(raw.get("background", False)),
+        pointer=bool(raw.get("pointer", False)),
+        wm_class=raw.get("wm_class"),
+        tag_windows=bool(raw.get("tag_windows", True)),
     )
 
 
@@ -135,7 +154,12 @@ def parse(data: dict) -> Config:
             seen.add(app.id)
             apps.append(app)
         rows.append(Row(title, tuple(apps)))
-    return Config(title=data.get("title", "Hearth"), rows=tuple(rows))
+    quick_menu = data.get("quick_menu", {})
+    return Config(
+        title=data.get("title", "Hearth"),
+        rows=tuple(rows),
+        pause_game=bool(quick_menu.get("pause_game", True)),
+    )
 
 
 def load(path: Path | None = None) -> Config:

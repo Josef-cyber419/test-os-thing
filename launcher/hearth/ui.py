@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import Callable
 
 import pygame
 
@@ -226,10 +227,13 @@ def run(
     message: str | None = None,
     allow_quit: bool = False,
     max_frames: int | None = None,
+    input_blocked: Callable[[], bool] | None = None,
 ) -> App | None:
     """Show the home screen until the user picks an app.
 
     Returns None only when quitting is allowed (dev mode) and requested.
+    `input_blocked` is polled a few times a second; while it's true (the Quick
+    Menu is open over the home screen), input is ignored.
     """
     screen = HomeScreen(surface, home, title)
     screen.message = message
@@ -237,15 +241,18 @@ def run(
     mapper.open_devices()
     clock = pygame.time.Clock()
     frames = 0
+    blocked = False
     while max_frames is None or frames < max_frames:
         frames += 1
+        if input_blocked and frames % 8 == 0:
+            blocked = input_blocked()
         now = pygame.time.get_ticks()
         navs: list[Nav] = []
         for event in pygame.event.get():
             if event.type == pygame.QUIT and allow_quit:
                 return None
             nav = mapper.translate(event, now)
-            if nav is not None:
+            if nav is not None and not blocked:
                 navs.append(nav)
         repeat = mapper.repeat(now)
         if repeat is not None:

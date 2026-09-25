@@ -40,6 +40,11 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Works with anything you hold**: Xbox/PlayStation/8BitDo controllers (SDL
   GameController mappings), TV remotes over HDMI-CEC, IR remotes via FLIRC, and
   keyboards.
+- **Quick Menu, over any game**: tap the controller's **Guide** button for a
+  frosted-glass panel over whatever's playing, with the game paused. Switch audio
+  output and microphone, set volumes, mix per-app volume, run Discord in the
+  background (mute, deafen, voice volume, or bring it up with the controller as a
+  mouse), and sleep/restart/power off. See [docs/QUICK_MENU.md](docs/QUICK_MENU.md).
 - **Always a way home**: hold the controller's **Guide** button for 1.5s, or
   press **Home** on a remote, to close the current app and return. In Steam, use
   *Power → Switch to Desktop*, which Hearth turns into "back to home".

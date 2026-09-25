@@ -16,6 +16,8 @@ class Nav(Enum):
     SELECT = auto()
     BACK = auto()
     MENU = auto()
+    TAB_PREV = auto()
+    TAB_NEXT = auto()
 
 
 @dataclass
