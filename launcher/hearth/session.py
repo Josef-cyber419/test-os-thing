@@ -194,15 +194,23 @@ def stop_entry(info: dict) -> None:
         pass
 
 
-def focus_appid(state: dict) -> int | None:
-    """Which app gamescope should show, as a gamescope app ID.
-
-    None means "leave it to gamescope/Steam" (used while Steam is in front)."""
+def focus_order(state: dict) -> list[int] | None:
+    """What gamescope should show, as app IDs in priority order: the first
+    one with a window is shown, so the home screen is the fallback while an
+    app is still starting. None means "leave it to gamescope/Steam" (used
+    while Steam, which manages this itself, is in front)."""
     from .gamescope import HOME_APPID, appid_for
 
     focus, fg = state.get("focus", "home"), state.get("foreground")
+    fg_ids = [appid_for(fg["id"])] if fg and fg.get("tag_windows", True) else []
     if focus in state.get("background", {}):
-        return appid_for(focus)
-    if fg:  # while an app runs, the home screen is closed
-        return appid_for(fg["id"]) if fg.get("tag_windows", True) else None
-    return HOME_APPID
+        return [appid_for(focus), *fg_ids, HOME_APPID]
+    if fg:  # while an app runs, the home screen is only a fallback
+        return [*fg_ids, HOME_APPID] if fg_ids else None
+    return [HOME_APPID]
+
+
+def focus_appid(state: dict) -> int | None:
+    """The app gamescope should show first."""
+    order = focus_order(state)
+    return order[0] if order else None

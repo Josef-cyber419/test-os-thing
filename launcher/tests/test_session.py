@@ -28,3 +28,15 @@ def test_focus_appid():
 def test_appids_are_distinct_and_in_range():
     ids = {appid_for(a) for a in ("steam", "kodi", "discord", "youtube", "emulation")}
     assert len(ids) == 5 and all(HOME_APPID < i < HOME_APPID + 0x10000 for i in ids)
+
+
+def test_focus_order_falls_back_to_home():
+    from hearth.gamescope import HOME_APPID, appid_for
+
+    game = {"id": "kodi", "tag_windows": True}
+    assert session.focus_order({"focus": "foreground", "foreground": game, "background": {}}) == \
+        [appid_for("kodi"), HOME_APPID]
+    discord_over_game = {"focus": "discord", "foreground": game, "background": {"discord": {}}}
+    assert session.focus_order(discord_over_game) == [appid_for("discord"), appid_for("kodi"), HOME_APPID]
+    steam = {"focus": "foreground", "foreground": {"id": "steam", "tag_windows": False}, "background": {}}
+    assert session.focus_order(steam) is None

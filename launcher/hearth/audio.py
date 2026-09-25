@@ -93,7 +93,12 @@ def _app_name(props: dict) -> str:
 
 class Audio:
     def __init__(self, runner: Runner = run_pactl) -> None:
-        self.run = runner
+        self._runner = runner
+
+    def run(self, args: Sequence[str]) -> str:
+        if args and args[0].startswith(("set-", "move-")):
+            log.debug("audio: pactl %s", " ".join(args))
+        return self._runner(args)
 
     def _list(self, kind: str) -> list[dict]:
         return json.loads(self.run(["-f", "json", "list", kind]) or "[]")
@@ -173,3 +178,26 @@ class Audio:
 
     def set_recording_muted(self, stream: Stream, muted: bool) -> None:
         self.run(["set-source-output-mute", str(stream.index), "1" if muted else "0"])
+
+
+def reset_restored_discord_mutes(audio: Audio, snapshot: Snapshot, seen: set[int]) -> list[Stream]:
+    """Unmute Discord call streams that start out muted.
+
+    WirePlumber remembers each app's mute by name across sessions, so a
+    "Deafen" from the Quick Menu would otherwise carry over, silently, to the
+    next call. The Quick Menu's mute and deafen are meant to last one call.
+    `seen` holds stream indexes already checked (updated in place); returns
+    the streams that were unmuted.
+    """
+    cleared = []
+    for stream in (*snapshot.discord_playback(), *snapshot.discord_recording()):
+        if stream.index in seen:
+            continue
+        seen.add(stream.index)
+        if stream.muted:
+            if stream in snapshot.discord_playback():
+                audio.set_stream_muted(stream, False)
+            else:
+                audio.set_recording_muted(stream, False)
+            cleared.append(stream)
+    return cleared

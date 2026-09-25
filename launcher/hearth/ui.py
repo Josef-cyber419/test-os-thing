@@ -286,3 +286,24 @@ def run(
         pygame.display.flip()
         clock.tick(60)
     return None
+
+
+def draw_loading(surface: pygame.Surface, app: App) -> None:
+    """A full-screen "Starting <app>…" card, shown until the app's window appears."""
+    th = Theme(surface.get_size())
+    base = _color(app.color)
+    surface.fill(BG_BOTTOM)
+    glow = pygame.Surface((th.width, th.height), pygame.SRCALPHA)
+    pygame.draw.circle(glow, (*base, 60), (th.width // 2, th.height // 2), int(th.height * 0.42))
+    surface.blit(pygame.transform.smoothscale(pygame.transform.smoothscale(glow, (th.width // 16, th.height // 16)),
+                                              (th.width, th.height)), (0, 0))
+    tile = pygame.Rect(0, 0, int(th.tile_w * 1.3), int(th.tile_h * 1.3))
+    tile.center = (th.width // 2, int(th.height * 0.45))
+    pygame.draw.rect(surface, base, tile, border_radius=th.radius)
+    letter = th.font_letter.render(app.name[:1].upper(), True, _lighten(base, 0.35))
+    surface.blit(letter, letter.get_rect(center=tile.center))
+    name = th.font_title.render(app.name, True, TEXT)
+    surface.blit(name, name.get_rect(midtop=(th.width // 2, tile.bottom + th.gap)))
+    sub = th.font_hint.render("Starting…", True, TEXT_DIM)
+    surface.blit(sub, sub.get_rect(midtop=(th.width // 2, tile.bottom + th.gap + name.get_height() + th.gap // 2)))
+    pygame.display.flip()

@@ -94,6 +94,16 @@ cd launcher && SDL_VIDEODRIVER=dummy pytest -q
 With `Xvfb` installed, this includes an end-to-end run of the real home screen
 and Quick Menu with fake apps (`tests/test_e2e.py`).
 
+### See it in real gamescope, no TV needed
+
+```sh
+tools/gamescope-lab/run.sh   # needs Docker → tools/gamescope-lab/out/hearth-demo.mp4
+```
+
+Runs Hearth inside real gamescope (Steam mode) with real PipeWire, plays
+through a session with 17 checks, and records a video. See
+[tools/gamescope-lab](tools/gamescope-lab/README.md).
+
 ## Project status
 
 Early. The launcher is tested and the image build checks its own

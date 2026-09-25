@@ -15,7 +15,10 @@ def log_path() -> Path:
     return Path(base) / "hearth" / "hearth.log"
 
 
-def setup(role: str, level: int = logging.INFO) -> Path:
+def setup(role: str, level: int | None = None) -> Path:
+    """HEARTH_LOG_LEVEL=debug in the environment logs every input action."""
+    if level is None:
+        level = getattr(logging, os.environ.get("HEARTH_LOG_LEVEL", "info").upper(), logging.INFO)
     path = log_path()
     root = logging.getLogger()
     root.setLevel(level)

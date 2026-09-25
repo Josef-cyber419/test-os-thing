@@ -1,0 +1,57 @@
+title = "Hearth"
+[quick_menu]
+pause_game = true
+
+[[rows]]
+title = "Play"
+  [[rows.apps]]
+  id = "game"
+  name = "Fake Game"
+  command = ["python3", "/lab/fake_app.py", "Fake Game", "fakegame", "--tone", "220"]
+  color = "#8a3ffc"
+  [[rows.apps]]
+  id = "emulation"
+  name = "Emulation"
+  command = ["python3", "/lab/fake_app.py", "Emulation", "esde"]
+  color = "#6b2fa0"
+  [[rows.apps]]
+  id = "discord"
+  name = "Discord"
+  command = ["python3", "/lab/fake_app.py", "Discord", "discord", "--voice"]
+  background = true
+  pointer = true
+  wm_class = "discord"
+  color = "#5865f2"
+
+[[rows]]
+title = "Watch"
+  [[rows.apps]]
+  id = "kodi"
+  name = "Kodi"
+  command = ["python3", "/lab/fake_app.py", "Kodi", "kodi"]
+  color = "#17b2e7"
+  [[rows.apps]]
+  id = "youtube"
+  name = "YouTube"
+  command = ["python3", "/lab/fake_app.py", "YouTube", "youtube"]
+  color = "#c4302b"
+  [[rows.apps]]
+  id = "jellyfin"
+  name = "Jellyfin"
+  command = ["python3", "/lab/fake_app.py", "Jellyfin", "jellyfin"]
+  color = "#5a3e8f"
+
+[[rows]]
+title = "System"
+  [[rows.apps]]
+  id = "desktop"
+  name = "Desktop Mode"
+  command = "true"
+  confirm = true
+  color = "#2d5f8b"
+  [[rows.apps]]
+  id = "poweroff"
+  name = "Power Off"
+  command = "true"
+  confirm = true
+  color = "#5c2a2a"

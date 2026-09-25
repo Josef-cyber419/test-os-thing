@@ -123,8 +123,16 @@ screen shows what went wrong).
   Each step is checked through the properties gamescope reads.
   `HEARTH_E2E_SHOTS=dir` saves composited screenshots.
 
-What these can't cover is gamescope itself, real controllers, PipeWire and
-systemd scopes. That's the list below.
+- **Real gamescope** (`tools/gamescope-lab/`, needs Docker): Hearth as the
+  client of gamescope 3.16 in Steam mode, with real PipeWire, driven through a
+  scripted session with 17 checks and recorded to video. It confirms that
+  gamescope accepts and focuses Hearth's tagged windows, follows its
+  front-app list between home, game and Discord, shows the Quick Menu overlay
+  with input focus, and that audio switching, per-app volume, and Discord
+  mute/deafen change the real PipeWire streams.
+
+What none of these cover is real GPU rendering, real controllers, and
+pausing games (systemd scopes). That's the list below.
 
 ## Verify on real hardware
 
@@ -132,10 +140,10 @@ These couldn't be tested without a real machine. Check them first, in this order
 
 1. **The image builds** against current `bazzite-deck:stable`. `image/build.sh`
    fails loudly if Bazzite's Game Mode session isn't one Hearth overrides.
-2. **Hearth and its apps appear in Game Mode.** Hearth tags windows with
-   `STEAM_GAME` and picks the front app with `GAMESCOPECTRL_BASELAYER_APPID`,
-   as Steam does. (Tested against Xvfb, but not against gamescope itself.)
-   Confirm the home screen, Kodi, ES-DE and Discord each come to the front.
+2. **Hearth and its apps appear in Game Mode.** Verified in real gamescope
+   3.16 (Steam mode) in the lab. Confirm on the real GPU, and with Bazzite's
+   gamescope build, that the home screen, Kodi, ES-DE and Discord each come to
+   the front.
 3. **Steam from the tile** behaves like normal Game Mode: Quick Access menu,
    performance overlay, sleep, game launching.
 4. **Steam → Switch to Desktop** reaches Hearth's shim (i.e. Steam finds

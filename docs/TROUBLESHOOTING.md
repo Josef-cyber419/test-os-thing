@@ -89,6 +89,12 @@ Two ways, depending on how permanent the change is:
   picks it up with its next automatic update.
 
 Develop on any computer without the TV: see "Try the home screen" in the
-README, and run `pytest` in `launcher/`. The end-to-end test runs the real
+README, and run `pytest` in `launcher/`. To see your change inside real
+gamescope, with a recorded video, run `tools/gamescope-lab/run.sh` (needs
+Docker; see its README).
+
+For more detail in the log, set `HEARTH_LOG_LEVEL=debug` (e.g. in
+`~/.config/environment.d/hearth.conf`). It records every Quick Menu input and
+every audio change. The end-to-end test runs the real
 home screen and Quick Menu on a virtual display (Xvfb) with fake apps; set
 `HEARTH_E2E_SHOTS=/some/dir` to save screenshots of each step.

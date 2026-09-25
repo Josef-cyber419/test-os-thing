@@ -53,7 +53,7 @@ def launch(app: cfg.App, dry_run: bool = False, gs: Gamescope | None = None) -> 
             "home_button": app.home_button, "tag_windows": app.tag_windows}
     state = session.update(lambda s: s.update(foreground=info, focus="foreground"))
     if gs:
-        gs.show_app(session.focus_appid(state))
+        gs.show_app(session.focus_order(state))
 
     sent_home = False
 
@@ -113,7 +113,7 @@ def show_background(app: cfg.App, gs: Gamescope | None) -> None:
     session.start_background(app)
     state = session.update(lambda s: s.__setitem__("focus", app.id))
     if gs:
-        gs.show_app(session.focus_appid(state))
+        gs.show_app(session.focus_order(state))
 
 
 def open_display(windowed: bool) -> pygame.Surface:
@@ -134,7 +134,7 @@ def show_home(gs: Gamescope | None) -> None:
     wid = pygame.display.get_wm_info().get("window")
     if wid:
         gs.tag(gs.window(wid), HOME_APPID)
-    gs.show_app(session.focus_appid(session.read()))
+    gs.show_app(session.focus_order(session.read()))
 
 
 class OverlayProcess:
@@ -168,8 +168,10 @@ def main(argv: list[str] | None = None) -> int:
     in_gamescope = bool(os.environ.get("GAMESCOPE_WAYLAND_DISPLAY"))
     gs = Gamescope.connect() if in_gamescope else None
     overlay = OverlayProcess(args.config) if (args.overlay if args.overlay is not None else in_gamescope) else None
-    # Fresh session: nothing in front, but keep background apps that survived a restart.
-    session.update(lambda s: s.update(copy.deepcopy(session.DEFAULT_STATE), background=s["background"]))
+    # Fresh session: nothing in front, but keep background apps that are
+    # still running (the hub may have restarted without them).
+    session.update(lambda s: s.update(copy.deepcopy(session.DEFAULT_STATE), background={
+        k: v for k, v in s["background"].items() if session.background_alive(v)}))
 
     dev_mode = args.windowed or args.dry_run
     state = {"last_id": None, "message": None, "surface": None}
@@ -229,7 +231,17 @@ def step(args, gs: Gamescope | None, overlay: OverlayProcess | None, dev_mode: b
         show_background(app, gs)
         return None
 
-    # Release the screen (and input devices) so the app gets them.
+    if gs and app.tag_windows:
+        # Keep a "Starting…" screen up; gamescope switches to the app as soon
+        # as its window appears (see session.focus_order), instead of
+        # showing black while it loads.
+        ui.draw_loading(state["surface"], app)
+        state["message"] = launch(app, dry_run=args.dry_run, gs=gs)
+        pygame.event.clear()  # drop input that queued up while the app ran
+        return None
+
+    # Release the screen and input devices entirely (e.g. for Steam, which
+    # manages gamescope's focus itself and must not be covered).
     pygame.quit()
     state["surface"] = None
     state["message"] = launch(app, dry_run=args.dry_run, gs=gs)

@@ -23,7 +23,7 @@ from pathlib import Path
 
 from . import config as cfg
 from . import homebutton, logs, session, updates
-from .audio import Audio, Snapshot
+from .audio import Audio, Snapshot, reset_restored_discord_mutes
 from .gamescope import Gamescope, appid_for
 
 log = logging.getLogger("hearth")
@@ -137,6 +137,7 @@ class Overlay:
         self._tries: dict[int, int] = {}
         self._liveness_ticks = 0
         self._audio_error: str | None = None
+        self._discord_streams_seen: set[int] = set()
 
         self._update_checked = 0.0
         self.events: queue.Queue[str] = queue.Queue()
@@ -154,7 +155,7 @@ class Overlay:
     def apply_focus(self, state: dict) -> None:
         self.state = state
         if self.gs:
-            self.gs.show_app(session.focus_appid(state))
+            self.gs.show_app(session.focus_order(state))
 
     def refresh(self, force: bool = False) -> None:
         from .quickmenu import Context, build_tabs
@@ -268,6 +269,13 @@ class Overlay:
 
             self.apply_focus(session.update(drop))
 
+        if "discord" in self.state["background"] and not self._liveness_ticks:
+            try:
+                for s in reset_restored_discord_mutes(self.audio, self.audio.snapshot(), self._discord_streams_seen):
+                    log.info("cleared a mute PipeWire restored on Discord's %s stream", s.app)
+            except (OSError, RuntimeError, ValueError):
+                pass
+
         # The app closed under the open menu (e.g. held Guide): close the menu.
         if self.open and (self.state["foreground"] or {}).get("id") != self.opened_for:
             self.paused_unit = None
@@ -366,6 +374,7 @@ class Overlay:
             if repeat is not None:
                 navs.append(repeat)
         for nav in navs:
+            log.debug("menu input: %s on %s", nav.name, getattr(self.menu.selected, "key", None))
             if nav is Nav.MENU:  # Start closes the menu, like B
                 nav = Nav.BACK
             if self.menu.handle(nav) == "close":

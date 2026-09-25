@@ -1,0 +1,180 @@
+diff -ruN -x '*.orig' a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
+--- a/src/Backends/DRMBackend.cpp	2025-07-30 22:27:47.000000000 +0000
++++ b/src/Backends/DRMBackend.cpp	2026-09-25 17:37:12.000000000 +0000
+@@ -3389,7 +3389,7 @@
+         }
+ 		virtual bool ValidPhysicalDevice( VkPhysicalDevice pVkPhysicalDevice ) const override
+ 		{
+-			return true;
++			return vulkan_has_drm_props();
+ 		}
+ 
+ 		virtual int Present( const FrameInfo_t *pFrameInfo, bool bAsync )
+diff -ruN -x '*.orig' a/src/rendervulkan.cpp b/src/rendervulkan.cpp
+--- a/src/rendervulkan.cpp	2026-09-25 18:26:07.000000000 +0000
++++ b/src/rendervulkan.cpp	2026-09-25 17:40:59.000000000 +0000
+@@ -400,46 +400,41 @@
+ 
+ bool CVulkanDevice::createDevice()
+ {
+-	vk.GetPhysicalDeviceMemoryProperties( physDev(), &m_memoryProperties );
+-
+ 	uint32_t supportedExtensionCount;
+ 	vk.EnumerateDeviceExtensionProperties( physDev(), NULL, &supportedExtensionCount, NULL );
+ 
+-	std::vector<VkExtensionProperties> supportedExts(supportedExtensionCount);
+-	vk.EnumerateDeviceExtensionProperties( physDev(), NULL, &supportedExtensionCount, supportedExts.data() );
++	m_supportedExts.resize(supportedExtensionCount);
++	vk.EnumerateDeviceExtensionProperties( physDev(), NULL, &supportedExtensionCount, m_supportedExts.data() );
++
++	if ( !GetBackend()->ValidPhysicalDevice( physDev() ) ) {
++		vk_log.errorf( "not a valid physical device" );
++		return false;
++	}
++
++	vk.GetPhysicalDeviceMemoryProperties( physDev(), &m_memoryProperties );
+ 
+-	bool hasDrmProps = false;
++	bool hasDrmProps = vulkan_has_drm_props();
+ 	bool supportsForeignQueue = false;
+ 	bool supportsHDRMetadata = false;
+-	for ( uint32_t i = 0; i < supportedExtensionCount; ++i )
+-	{
+-		if ( strcmp(supportedExts[i].extensionName,
+-		     VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME) == 0 )
++	for (const auto& ext : m_supportedExts) {
++		if ( strcmp(ext.extensionName, VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME) == 0 )
+ 			m_bSupportsModifiers = true;
+ 
+-		if ( strcmp(supportedExts[i].extensionName,
+-		            VK_EXT_PHYSICAL_DEVICE_DRM_EXTENSION_NAME) == 0 )
+-			hasDrmProps = true;
+-
+-		if ( strcmp(supportedExts[i].extensionName,
+-		     VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME) == 0 )
++		if ( strcmp(ext.extensionName, VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME) == 0 )
+ 			supportsForeignQueue = true;
+ 
+-		if ( strcmp(supportedExts[i].extensionName,
+-			 VK_EXT_HDR_METADATA_EXTENSION_NAME) == 0 )
+-			 supportsHDRMetadata = true;
++		if ( strcmp(ext.extensionName, VK_EXT_HDR_METADATA_EXTENSION_NAME) == 0 )
++			supportsHDRMetadata = true;
+ 	}
+ 
+ 	vk_log.infof( "physical device %s DRM format modifiers", m_bSupportsModifiers ? "supports" : "does not support" );
+ 
+-	if ( !GetBackend()->ValidPhysicalDevice( physDev() ) )
+-		return false;
+-
++	if ( !hasDrmProps ) {
++		// This could happen when e.g. running the lavapipe driver
++		// (without an actual physical device)
++		vk_log.warnf( "physical device doesn't support VK_EXT_physical_device_drm" );
++	} else {
+ #if HAVE_DRM
+-	// XXX(JoshA): Move this to ValidPhysicalDevice.
+-	// We need to refactor some Vulkan stuff to do that though.
+-	if ( hasDrmProps )
+-	{
+ 		VkPhysicalDeviceDrmPropertiesEXT drmProps = {
+ 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT,
+ 		};
+@@ -478,12 +473,9 @@
+ 			m_bHasDrmPrimaryDevId = true;
+ 			m_drmPrimaryDevId = makedev( drmProps.primaryMajor, drmProps.primaryMinor );
+ 		}
+-	}
+-	else
++#else
++		vk_log.warnf( "built without DRM support" );
+ #endif
+-	{
+-		vk_log.errorf( "physical device doesn't support VK_EXT_physical_device_drm" );
+-		return false;
+ 	}
+ 
+ 	if ( m_bSupportsModifiers && !supportsForeignQueue ) {
+@@ -551,7 +543,11 @@
+ 	enabledExtensions.push_back( VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME );
+ 	enabledExtensions.push_back( VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME );
+ 
+-	enabledExtensions.push_back( VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME );
++	// Test-lab patch: lavapipe (software Vulkan) lacks this extension; it is
++	// only needed for explicit sync with GPU clients.
++	if ( std::any_of( m_supportedExts.begin(), m_supportedExts.end(), []( const VkExtensionProperties &e )
++		{ return strcmp( e.extensionName, VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME ) == 0; } ) )
++		enabledExtensions.push_back( VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME );
+ 
+ 	enabledExtensions.push_back( VK_EXT_ROBUSTNESS_2_EXTENSION_NAME );
+ #if 0
+@@ -1982,6 +1978,10 @@
+ 
+ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uint32_t drmFormat, createFlags flags, wlr_dmabuf_attributes *pDMA /* = nullptr */,  uint32_t contentWidth /* = 0 */, uint32_t contentHeight /* =  0 */, CVulkanTexture *pExistingImageToReuseMemory, gamescope::OwningRc<gamescope::IBackendFb> pBackendFb )
+ {
++	// Test-lab patch: with software Vulkan there is no display to scan out
++	// to, so treat "flippable" images as ordinary ones.
++	if ( flags.bFlippable && getenv( "GAMESCOPE_LAB_NOFLIP" ) )
++		flags.bFlippable = false;
+ 	m_pBackendFb = std::move( pBackendFb );
+ 	m_drmFormat = drmFormat;
+ 	VkResult res = VK_ERROR_INITIALIZATION_FAILED;
+@@ -4141,6 +4141,16 @@
+ 	return g_device.wait( ulSeqNo, bReset );
+ }
+ 
++bool vulkan_has_drm_props()
++{
++	for (const auto& ext : g_device.supportedExtensions()) {
++		if ( strcmp(ext.extensionName, VK_EXT_PHYSICAL_DEVICE_DRM_EXTENSION_NAME) == 0 )
++			return true;
++	}
++
++	return false;
++}
++
+ gamescope::Rc<CVulkanTexture> vulkan_get_last_output_image( bool partial, bool defer )
+ {
+ 	// Get previous image ( +2 )
+diff -ruN -x '*.orig' a/src/rendervulkan.hpp b/src/rendervulkan.hpp
+--- a/src/rendervulkan.hpp	2025-07-30 22:27:47.000000000 +0000
++++ b/src/rendervulkan.hpp	2026-09-25 17:37:12.000000000 +0000
+@@ -804,6 +804,7 @@
+ 	inline bool hasDrmPrimaryDevId() {return m_bHasDrmPrimaryDevId;}
+ 	inline dev_t primaryDevId() {return m_drmPrimaryDevId;}
+ 	inline bool supportsFp16() {return m_bSupportsFp16;}
++	inline std::vector<VkExtensionProperties>& supportedExtensions() {return m_supportedExts;}
+ 
+ 	inline std::pair<void *, uint32_t> uploadBufferData(uint32_t size)
+ 	{
+@@ -894,6 +895,9 @@
+ 	std::atomic<uint64_t> m_submissionSeqNo = { 0 };
+ 	std::vector<std::unique_ptr<CVulkanCmdBuffer>> m_unusedCmdBufs;
+ 	std::map<uint64_t, std::unique_ptr<CVulkanCmdBuffer>> m_pendingCmdBufs;
++
++private:
++	std::vector<VkExtensionProperties> m_supportedExts;
+ };
+ 
+ struct TextureState
+@@ -996,4 +1000,7 @@
+ 
+ void vulkan_wait_idle();
+ 
++// Whether the driver implements VK_EXT_physical_device_drm
++bool vulkan_has_drm_props();
++
+ extern CVulkanDevice g_device;
+diff -ruN -x '*.orig' a/src/steamcompmgr.cpp b/src/steamcompmgr.cpp
+--- a/src/steamcompmgr.cpp	2025-07-30 22:27:47.000000000 +0000
++++ b/src/steamcompmgr.cpp	2026-09-25 17:51:53.249255968 +0000
+@@ -6965,6 +6965,9 @@
+ 
+ 		gpuvis_trace_printf( "pushing wait for commit %lu win %lx", newCommit->commitID, w->type == steamcompmgr_win_type_t::XWAYLAND ? w->xwayland().id : 0 );
+ 		{
++			// Test-lab patch: software-rendered (SHM) buffers have no fence to wait on.
++			if ( fence < 0 )
++				bKnownReady = true;
+ 			newCommit->SetFence( fence, mango_nudge, doneCommits );
+ 			if ( bKnownReady )
+ 				newCommit->Signal();

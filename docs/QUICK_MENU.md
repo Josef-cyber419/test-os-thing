@@ -26,7 +26,9 @@ Discord and go back to your game.
 - **Discord**: start Discord in the background, bring it to the front ("Show
   Discord"), and while you're in a call: **mute my mic**, **deafen**, **voice
   volume**. The call controls work at the audio level, so they work with
-  Discord hidden.
+  Discord hidden. Mute and deafen last for the current call. (PipeWire
+  remembers app volumes between sessions, but Hearth clears a remembered
+  Discord mute, so a new call never starts silently muted.)
 - **System**: resume, close the current app, sleep, restart, power off.
   Anything that ends what you're doing asks you to press A again.
 

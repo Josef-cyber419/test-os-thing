@@ -27,3 +27,27 @@ def test_volume_is_clamped():
     pactl = FakePactl()
     Audio(pactl).set_output_volume("x", 500)
     assert pactl.calls[-1] == ["set-sink-volume", "x", "150%"]
+
+
+def test_restored_discord_mutes_are_cleared_once():
+    from fakes import SINK_INPUTS, SOURCE_OUTPUTS
+
+    from hearth.audio import reset_restored_discord_mutes
+
+    pactl = FakePactl()
+    SINK_INPUTS[1]["mute"] = True  # Discord voice, muted from a previous session
+    SOURCE_OUTPUTS[0]["mute"] = True
+    try:
+        audio = Audio(pactl)
+        seen: set[int] = set()
+        cleared = reset_restored_discord_mutes(audio, audio.snapshot(), seen)
+        assert [s.index for s in cleared] == [42, 51]
+        assert ["set-sink-input-mute", "42", "0"] in pactl.calls
+        assert ["set-source-output-mute", "51", "0"] in pactl.calls
+        # Once seen, a stream is left alone (a mute during the call sticks).
+        assert reset_restored_discord_mutes(audio, audio.snapshot(), seen) == []
+        # Other apps' mutes (Spotify, index 43) are never touched.
+        assert not any(c[:2] == ["set-sink-input-mute", "43"] for c in pactl.calls)
+    finally:
+        SINK_INPUTS[1]["mute"] = False
+        SOURCE_OUTPUTS[0]["mute"] = False

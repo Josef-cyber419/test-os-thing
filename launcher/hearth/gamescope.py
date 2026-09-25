@@ -128,20 +128,25 @@ class Gamescope:
     def tag(self, win, appid: int) -> None:
         """Give a window an app ID so gamescope can focus it."""
         self._set_cardinals(win, "STEAM_GAME", [appid])
-        self.d.flush()
+        self.d.sync()  # wait until the X server has applied it
 
     def is_tagged(self, win) -> bool:
         return bool(self.get_cardinal(win, "STEAM_GAME"))
 
     # -- focus -----------------------------------------------------------------
 
-    def show_app(self, appid: int | None) -> None:
-        """Bring an app to the front; None hands focus back to gamescope/Steam."""
-        if appid is None:
+    def show_app(self, appids: int | list[int] | None) -> None:
+        """Bring an app to the front; None hands focus back to gamescope/Steam.
+
+        A list is a priority order: gamescope shows the first app that has a
+        window, so [game, home] keeps the home screen's "Starting…" up until
+        the game's window appears."""
+        if appids is None:
             self.root.delete_property(self.atom("GAMESCOPECTRL_BASELAYER_APPID"))
         else:
-            self._set_cardinals(self.root, "GAMESCOPECTRL_BASELAYER_APPID", [appid])
-        self.d.flush()
+            self._set_cardinals(self.root, "GAMESCOPECTRL_BASELAYER_APPID",
+                                [appids] if isinstance(appids, int) else list(appids))
+        self.d.sync()  # wait until the X server has applied it
 
     # -- overlay ---------------------------------------------------------------
 
@@ -153,4 +158,4 @@ class Gamescope:
         self._set_cardinals(win, "_NET_WM_WINDOW_OPACITY", [int(OPAQUE * opacity) if visible else 0])
         # 1 = the overlay gets keyboard/mouse input, like Steam's Quick Access menu.
         self._set_cardinals(win, "STEAM_INPUT_FOCUS", [1 if visible else 0])
-        self.d.flush()
+        self.d.sync()  # wait until the X server has applied it
