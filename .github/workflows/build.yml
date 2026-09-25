@@ -49,7 +49,7 @@ jobs:
           - name: hearth-os
             base: ghcr.io/ublue-os/bazzite-deck:stable
           - name: hearth-os-nvidia
-            base: ghcr.io/ublue-os/bazzite-deck-nvidia-open:stable
+            base: ghcr.io/ublue-os/bazzite-deck-nvidia:stable
     steps:
       - name: Free disk space
         # Bazzite images are large; the runner's preinstalled SDKs aren't needed.
