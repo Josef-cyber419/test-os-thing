@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+# Hearth home screen / session hub. See /usr/share/hearth/apps.toml.
+export PYGAME_HIDE_SUPPORT_PROMPT=1
+export PYTHONPATH="/usr/lib/hearth/python${PYTHONPATH:+:$PYTHONPATH}"
+exec /usr/bin/python3 -m hearth "$@"

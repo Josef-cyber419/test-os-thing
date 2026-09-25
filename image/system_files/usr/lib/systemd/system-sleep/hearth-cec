@@ -1,0 +1,6 @@
+#!/usr/bin/bash
+# systemd calls this around suspend: TV follows the PC, like a console.
+case "$1" in
+    pre)  /usr/libexec/hearth/hearth-cec standby ;;
+    post) /usr/libexec/hearth/hearth-cec wake ;;
+esac

@@ -1,0 +1,23 @@
+# Hearth OS: Bazzite (Fedora Atomic) + a TV-style home screen.
+#
+# Build:   podman build -t hearth-os .
+# NVIDIA:  podman build --build-arg BASE_IMAGE=ghcr.io/ublue-os/bazzite-deck-nvidia-open:stable -t hearth-os .
+#
+# The "-deck" Bazzite images boot straight into Game Mode (gamescope); Hearth
+# replaces Steam as the first thing you see, and Steam becomes one of its tiles.
+ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite-deck:stable
+
+FROM scratch AS ctx
+COPY image/build.sh /build.sh
+
+FROM ${BASE_IMAGE}
+
+COPY image/system_files /
+COPY launcher/hearth /usr/lib/hearth/python/hearth
+
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build.sh
+
+RUN bootc container lint

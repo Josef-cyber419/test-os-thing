@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+# Steam in its console UI (the Steam Deck / Big Picture interface), running
+# inside the current gamescope session. When Steam exits, Hearth comes back.
+
+# Bazzite's Game Mode may run the "ogui-steam" session, which doesn't carry
+# the stock Steam session's feature flags (HDR, VRR, tearing controls...).
+# Load them if they're missing.
+steam_session=/usr/share/gamescope-session-plus/sessions.d/steam
+if [[ -z ${STEAM_GAMESCOPE_HDR_SUPPORTED:-} && -f $steam_session ]]; then
+    # shellcheck source=/dev/null
+    . "$steam_session"
+fi
+
+exec steam -gamepadui -steamos3 -steampal -steamdeck "$@"

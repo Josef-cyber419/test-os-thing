@@ -1,0 +1,123 @@
+# Hearth home screen layout.
+#
+# To customise without rebuilding the image, copy this file to
+# ~/.config/hearth/apps.toml and edit it; the copy replaces this one.
+#
+# Each app needs `id`, `name`, and either `command` (string or list) or
+# `flatpak` (a Flathub app ID, run with `flatpak run`). Optional keys:
+#   args     extra arguments appended to the command
+#   color    tile color, e.g. "#1b2838"
+#   icon     path to a PNG shown on the tile
+#   requires commands that must exist on PATH, or the tile is hidden
+#   confirm  ask "are you sure?" first (power actions)
+#   home_button  false = don't close the app when Guide is held (default true)
+#
+# Tiles whose flatpak or required command isn't installed are hidden
+# automatically, so it's fine to list apps you haven't installed yet.
+# The last row is where the controller's Start/Menu button jumps to.
+
+title = "Hearth"
+
+[[rows]]
+title = "Play"
+
+  [[rows.apps]]
+  id = "steam"
+  name = "Steam"
+  command = "/usr/libexec/hearth/hearth-steam"
+  requires = ["steam"]
+  # Steam uses the Guide button itself; leave via Steam's "Switch to Desktop".
+  home_button = false
+  color = "#1b2838"
+
+  [[rows.apps]]
+  id = "retrodeck"
+  name = "Emulation"
+  flatpak = "net.retrodeck.retrodeck"
+  color = "#6b2fa0"
+
+  [[rows.apps]]
+  id = "moonlight"
+  name = "Moonlight"
+  flatpak = "com.moonlight_stream.Moonlight"
+  color = "#3c4a5c"
+
+[[rows]]
+title = "Watch"
+
+  [[rows.apps]]
+  id = "kodi"
+  name = "Kodi"
+  flatpak = "tv.kodi.Kodi"
+  color = "#17b2e7"
+
+  [[rows.apps]]
+  id = "youtube"
+  name = "YouTube"
+  command = ["/usr/libexec/hearth/hearth-web", "https://www.youtube.com/tv"]
+  requires = ["flatpak"]
+  color = "#c4302b"
+
+  [[rows.apps]]
+  id = "netflix"
+  name = "Netflix"
+  command = ["/usr/libexec/hearth/hearth-web", "https://www.netflix.com"]
+  requires = ["flatpak"]
+  color = "#b20710"
+
+  [[rows.apps]]
+  id = "jellyfin"
+  name = "Jellyfin"
+  flatpak = "com.github.iwalton3.jellyfin-media-player"
+  args = ["--tv", "--fullscreen"]
+  color = "#5a3e8f"
+
+  [[rows.apps]]
+  id = "plex"
+  name = "Plex"
+  flatpak = "tv.plex.PlexHTPC"
+  color = "#cc7b19"
+
+  [[rows.apps]]
+  id = "spotify"
+  name = "Spotify"
+  flatpak = "com.spotify.Client"
+  color = "#1db954"
+
+[[rows]]
+title = "System"
+
+  [[rows.apps]]
+  id = "desktop"
+  name = "Desktop Mode"
+  command = "/usr/libexec/hearth/hearth-desktop"
+  confirm = true
+  color = "#2d5f8b"
+
+  [[rows.apps]]
+  id = "windows"
+  name = "Boot Windows"
+  command = ["/usr/libexec/hearth/hearth-reboot-to", "windows"]
+  requires = ["efibootmgr"]
+  confirm = true
+  color = "#0067b8"
+
+  [[rows.apps]]
+  id = "sleep"
+  name = "Sleep"
+  command = "systemctl suspend"
+  color = "#3a3f58"
+
+  [[rows.apps]]
+  id = "restart"
+  name = "Restart"
+  command = "systemctl reboot"
+  confirm = true
+  color = "#3a3f58"
+
+  [[rows.apps]]
+  id = "poweroff"
+  name = "Power Off"
+  command = "systemctl poweroff"
+  confirm = true
+  color = "#5c2a2a"

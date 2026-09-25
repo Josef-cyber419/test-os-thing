@@ -1,0 +1,2 @@
+# Pulse-Eight USB-CEC adapter: attach the kernel pulse8-cec driver.
+SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1002", TAG+="systemd", ENV{SYSTEMD_WANTS}+="hearth-pulse8-cec@%k.service"

@@ -1,0 +1,77 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Rebuild daily so the image picks up Bazzite and Fedora updates.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Launcher tests
+        working-directory: launcher
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          pip install -e '.[dev]'
+          pytest -q
+      - name: Shellcheck
+        run: |
+          pip install shellcheck-py
+          shellcheck -s bash image/build.sh image/system_files/usr/bin/hearth \
+            image/system_files/usr/libexec/hearth/hearth-* \
+            image/system_files/usr/libexec/hearth/shims/* \
+            image/system_files/usr/lib/systemd/system-sleep/hearth-cec \
+            image/system_files/etc/gamescope-session-plus/sessions.d/*
+
+  image:
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: hearth-os
+            base: ghcr.io/ublue-os/bazzite-deck:stable
+          - name: hearth-os-nvidia
+            base: ghcr.io/ublue-os/bazzite-deck-nvidia-open:stable
+    steps:
+      - name: Free disk space
+        # Bazzite images are large; the runner's preinstalled SDKs aren't needed.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          # GHCR image names must be lowercase.
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.name }}"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          podman build \
+            --build-arg BASE_IMAGE=${{ matrix.base }} \
+            --tag "$image:latest" \
+            --tag "$image:${{ github.sha }}" \
+            .
+
+      - name: Push
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          podman push "$IMAGE:latest"
+          podman push "$IMAGE:${{ github.sha }}"

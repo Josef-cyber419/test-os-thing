@@ -1,0 +1,11 @@
+#!/usr/bin/bash
+# Leave the TV session for the desktop (KDE Plasma or GNOME). Bazzite's
+# "Return to Gaming Mode" shortcut on the desktop brings you back to Hearth.
+for select in /usr/libexec/os-session-select /usr/bin/steamos-session-select; do
+    [[ -x $select ]] && exec "$select" plasma
+done
+if command -v steamosctl >/dev/null; then
+    exec steamosctl switch-to-desktop-mode
+fi
+echo "hearth-desktop: no session switcher found; is this a Bazzite deck image?" >&2
+exit 1

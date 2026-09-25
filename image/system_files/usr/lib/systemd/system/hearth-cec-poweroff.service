@@ -1,0 +1,12 @@
+[Unit]
+Description=Put the TV in standby on shutdown (HDMI-CEC)
+DefaultDependencies=no
+Before=shutdown.target
+ConditionPathExists=/dev/cec0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/hearth/hearth-cec standby
+
+[Install]
+WantedBy=poweroff.target

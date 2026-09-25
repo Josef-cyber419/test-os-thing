@@ -1,0 +1,37 @@
+#!/usr/bin/bash
+# HDMI-CEC control via the kernel CEC framework (cec-ctl from v4l-utils).
+#   setup    register as a playback device; TV remote keys then arrive as
+#            normal key presses, so the remote drives Hearth and Kodi
+#   wake     turn the TV on and switch it to our input
+#   standby  put the TV in standby
+set -uo pipefail
+TV_WAKE=1 TV_STANDBY=1 OSD_NAME=Hearth
+# shellcheck source=/dev/null
+[[ -r /etc/hearth/cec.conf ]] && . /etc/hearth/cec.conf
+
+dev=${HEARTH_CEC_DEVICE:-/dev/cec0}
+for _ in $(seq 20); do [[ -e $dev ]] && break; sleep 0.5; done
+[[ -e $dev ]] || exit 0   # no CEC adapter: nothing to do
+
+cec() { cec-ctl -d "$dev" "$@" >/dev/null; }
+
+case "${1:-}" in
+    setup)
+        cec --playback --osd-name "$OSD_NAME"
+        [[ $TV_WAKE == 1 ]] && "$0" wake
+        ;;
+    wake)
+        [[ $TV_WAKE == 1 ]] || exit 0
+        cec --to 0 --image-view-on
+        phys=$(cec-ctl -d "$dev" | awk '/Physical Address/ { print $4; exit }')
+        [[ -n $phys ]] && cec --to 15 --active-source "phys-addr=$phys"
+        ;;
+    standby)
+        [[ $TV_STANDBY == 1 ]] && cec --to 0 --standby
+        ;;
+    *)
+        echo "usage: hearth-cec setup|wake|standby" >&2
+        exit 2
+        ;;
+esac
+exit 0

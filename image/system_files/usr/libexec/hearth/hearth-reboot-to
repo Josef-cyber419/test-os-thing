@@ -1,0 +1,8 @@
+#!/usr/bin/bash
+# Reboot once into another OS, then come back to Linux by default next time.
+# Uses the firmware's one-shot BootNext variable, so it works regardless of
+# which bootloader (GRUB, systemd-boot, Windows Boot Manager) is the default.
+set -euo pipefail
+target=${1:?usage: hearth-reboot-to windows}
+sudo -n /usr/libexec/hearth/hearth-bootnext "$target"
+exec systemctl reboot

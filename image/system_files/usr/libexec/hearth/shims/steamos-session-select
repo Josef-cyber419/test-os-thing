@@ -1,0 +1,17 @@
+#!/usr/bin/bash
+# Hearth puts this directory first on PATH for apps it launches.
+#
+# Steam's "Switch to Desktop" calls `steamos-session-select plasma`. Inside
+# Hearth that becomes "go back to the Hearth home screen": we just ask Steam
+# to exit. The real Desktop Mode is one tile away on the home screen.
+case "${1:-}" in
+    plasma*|desktop)
+        steam -shutdown
+        exit 0
+        ;;
+esac
+for real in /usr/bin/steamos-session-select /usr/libexec/os-session-select; do
+    [[ -x $real ]] && exec "$real" "$@"
+done
+echo "steamos-session-select: no system implementation found" >&2
+exit 1

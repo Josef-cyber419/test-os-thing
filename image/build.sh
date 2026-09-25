@@ -1,0 +1,46 @@
+#!/usr/bin/bash
+# Runs inside the image build (see Containerfile). Fails loudly on anything
+# unexpected, so a Bazzite change breaks the build instead of your TV.
+set -euxo pipefail
+
+# --- packages -----------------------------------------------------------------
+#   python3-pygame     Hearth's UI (SDL2: gamepads, fullscreen, fonts)
+#   python3-evdev      "hold Guide to go home" button watcher
+#   v4l-utils          cec-ctl, for HDMI-CEC TV control
+#   linuxconsoletools  inputattach, for the Pulse-Eight USB-CEC adapter
+#   efibootmgr         "Boot Windows" tile (one-shot EFI BootNext)
+dnf5 -y install python3-pygame python3-evdev v4l-utils linuxconsoletools efibootmgr
+
+# --- check that Game Mode will actually start Hearth ------------------------
+# Hearth hooks in through /etc/gamescope-session-plus/sessions.d/<session>,
+# which gamescope-session-plus layers over the stock config. Make sure the
+# session SDDM auto-logs into is one we ship an override for.
+autologin=$(grep -hs '^Session=' /usr/lib/sddm/sddm.conf.d/*.conf /etc/sddm.conf.d/*.conf | tail -n1 | cut -d= -f2)
+desktop_file=/usr/share/wayland-sessions/$autologin
+if [[ -z $autologin || ! -f $desktop_file ]]; then
+    echo "build.sh: can't find the Game Mode autologin session ('$autologin')" >&2
+    exit 1
+fi
+hooked=no
+for client in /etc/gamescope-session-plus/sessions.d/*; do
+    client=$(basename "$client")
+    [[ -f /usr/share/gamescope-session-plus/sessions.d/$client ]] || continue
+    if grep -E '^Exec=' "$desktop_file" | grep -qw -- "$client"; then
+        hooked=yes
+    fi
+done
+if [[ $hooked != yes ]]; then
+    echo "build.sh: Game Mode session $autologin isn't one Hearth overrides:" >&2
+    grep -E '^Exec=' "$desktop_file" >&2
+    echo "Add an override for it under image/system_files/etc/gamescope-session-plus/sessions.d/" >&2
+    exit 1
+fi
+
+# --- services -----------------------------------------------------------------
+systemctl enable hearth-flatpak-setup.service hearth-cec-poweroff.service
+
+# --- sanity checks ------------------------------------------------------------
+visudo -cf /etc/sudoers.d/hearth
+python3 -m compileall -q /usr/lib/hearth/python
+PYTHONPATH=/usr/lib/hearth/python python3 -c \
+    'import hearth.config as c; c.load(c.SYSTEM_CONFIG)'

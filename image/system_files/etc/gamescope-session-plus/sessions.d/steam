@@ -1,0 +1,7 @@
+# Hearth: start the Hearth home screen instead of Steam in Game Mode.
+# gamescope-session-plus sources this after the stock session config in
+# /usr/share/gamescope-session-plus/sessions.d, so every Game Mode setting
+# (HDR, VRR, resolution, env vars) is kept and only the client changes.
+# Steam is launched from Hearth's Steam tile. Delete this file to go back
+# to booting straight into Steam.
+export CLIENTCMD="/usr/bin/hearth"

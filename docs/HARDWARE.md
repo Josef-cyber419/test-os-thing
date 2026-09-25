@@ -1,0 +1,89 @@
+# Hardware that makes a difference
+
+Ordered roughly by how much it improves a living-room PC for the money.
+
+## Must-haves
+
+### GPU: AMD if you have the choice
+Bazzite's Game Mode (gamescope) works best on AMD Radeon: HDR, VRR, and the
+Steam Deck-style performance overlay all work with the open-source drivers.
+NVIDIA works with the `hearth-os-nvidia` image but has historically had more
+gamescope issues. Intel Arc works but is less tested.
+
+**The HDMI 2.1 catch (AMD):** the HDMI Forum doesn't allow HDMI 2.1 in AMD's
+open-source Linux driver, so AMD's HDMI port tops out at HDMI 2.0 (4K60, no 4K120,
+no HDMI-VRR). If you want 4K120 with HDR on a TV, use the card's **DisplayPort
+output with an active DP 1.4 → HDMI 2.1 adapter**. Cable Matters' adapter is the
+one most people use; update its firmware. VRR through adapters is hit or miss.
+NVIDIA's driver does support HDMI 2.1 directly.
+
+### A way to use your TV remote: Pulse-Eight USB-CEC adapter (~$40)
+PC graphics cards don't support HDMI-CEC, the protocol that lets TVs and
+consoles control each other. This adapter plugs inline between the PC and TV and
+adds it. It makes the biggest single difference to feeling like a real smart-TV
+device:
+- your **TV remote's arrows/OK/Back** drive Hearth and Kodi
+- the **TV turns on and switches to the PC** when it wakes, and turns off when
+  it sleeps
+
+Hearth sets it up automatically (see `image/system_files/usr/lib/udev/rules.d`).
+Some users report the passthrough limiting 4K HDR bandwidth; check reviews
+against the resolution you want. If it's a problem for you, a FLIRC gives you
+remote control, but not TV power/input control.
+
+### Or: FLIRC USB IR receiver (~$25)
+A tiny USB stick you "teach" any IR remote's buttons, and it shows up as a
+keyboard. Use the TV's own remote or a cheap media remote. Program one button as
+**Home** (`KEY_HOMEPAGE`); Hearth treats it as "go home" from any app.
+
+### Controllers
+- **8BitDo Ultimate 2 / Ultimate 2.4G**: uses a USB 2.4GHz dongle, so no
+  Bluetooth pairing hassle, and works with Linux out of the box.
+- **Xbox Wireless Controller**: works over Bluetooth. Bazzite includes the
+  `xone` driver for Microsoft's USB wireless dongle, which has lower latency.
+- **DualSense (PS5)**: Bluetooth or USB. Gyro and haptics work in many games
+  through Steam Input.
+
+### Networking: Ethernet
+Wired Ethernet, if you can. It matters most for Moonlight/Sunshine streaming and
+big game downloads.
+
+## Game-changers for emulation
+
+### Wii: Mayflash DolphinBar (~$30), yes, it's worth it
+A USB sensor bar with a built-in Bluetooth adapter for **real Wii Remotes**. In
+Dolphin (included in RetroDECK), put it in **mode 4** and use "Connect real Wii
+Remotes". You get genuine pointer aiming, motion controls, speaker and rumble,
+with none of the Bluetooth pairing trouble. It also works as a sensor bar for
+Wii Remotes used as light guns in Wii rail shooters.
+
+### Light guns for retro arcade/console shooters
+Old light guns only work with CRT TVs. Modern alternatives:
+- **Sinden Lightgun**: uses a camera plus a white border drawn around the game.
+  Works on any TV, with official Linux support.
+- **GUN4IR** (DIY or pre-built): IR LEDs around the TV. Very accurate, lowest
+  latency, needs a small install.
+- **Retro Shooter RS3 Reaper**: prebuilt, IR-based, recoil options.
+
+Pair with RetroArch or MAME in RetroDECK for Time Crisis, House of the Dead,
+Duck Hunt, and so on.
+
+### Arcade stick or retro-style pads
+8BitDo's retro receivers let original SNES/Genesis/PS controllers work
+wirelessly, which is great for authenticity.
+
+## Quality of life
+
+- **Bluetooth**: an Intel AX210/AX211 Wi-Fi + Bluetooth card is the most
+  reliable choice on Linux. It helps a lot when you use several Bluetooth
+  controllers at once. Avoid no-name Bluetooth dongles.
+- **Keyboard with trackpad** (e.g. Logitech K400 Plus): for the occasional trip
+  into Desktop Mode, sign-ins, and typing searches. Keep it in a drawer.
+- **Storage**: NVMe SSD, 2 TB or more if you keep a Steam library and ROMs.
+  Separate drives for Windows and Linux (see INSTALL.md).
+- **Audio**: TV's eARC to a soundbar or AV receiver. Enable passthrough in Kodi
+  for Dolby Atmos / DTS:X from your media library.
+- **Small quiet case with good airflow**: it lives next to the TV. Tune fan
+  curves in the BIOS so it's silent while idle and during video playback.
+- **Wake from controller/remote**: enable "wake on USB" in the BIOS so a remote
+  or controller dongle can wake the PC from sleep, like a console.
