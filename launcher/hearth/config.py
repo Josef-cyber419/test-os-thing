@@ -29,7 +29,7 @@ import os
 import shlex
 import shutil
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 SYSTEM_CONFIG = Path("/usr/share/hearth/apps.toml")
@@ -107,6 +107,10 @@ class Config:
     rows: tuple[Row, ...] = field(default_factory=tuple)
     # Freeze the game while the Quick Menu is open, like a console's home menu.
     pause_game: bool = True
+    # Colour scheme, after a classic racing livery (see style.LIVERIES).
+    livery: str = "gulf"
+    # "reduced" turns off the intro, launch zoom and other decorative motion.
+    motion: str = "full"
 
     def app(self, app_id: str) -> App | None:
         return next((a for row in self.rows for a in row.apps if a.id == app_id), None)
@@ -118,7 +122,7 @@ class Config:
             apps = tuple(a for a in row.apps if a.available())
             if apps:
                 rows.append(Row(row.title, apps))
-        return Config(self.title, tuple(rows), self.pause_game)
+        return replace(self, rows=tuple(rows))
 
 
 def _parse_command(raw: dict, where: str) -> tuple[str, ...]:
@@ -180,10 +184,16 @@ def parse(data: dict) -> Config:
             apps.append(app)
         rows.append(Row(title, tuple(apps)))
     quick_menu = data.get("quick_menu", {})
+    theme = data.get("theme", {})
+    motion = theme.get("motion", "full")
+    if motion not in ("full", "reduced"):
+        raise ConfigError("theme.motion must be \"full\" or \"reduced\"")
     return Config(
         title=data.get("title", "Hearth"),
         rows=tuple(rows),
         pause_game=bool(quick_menu.get("pause_game", True)),
+        livery=str(theme.get("livery", "gulf")).lower(),
+        motion=motion,
     )
 
 
@@ -199,8 +209,10 @@ def merge(base: dict, user: dict) -> dict:
     """Layer user changes over the defaults (see the module docstring)."""
     if user.get("replace"):
         return user
-    merged = {**base, **{k: v for k, v in user.items() if k not in ("rows", "hide", "quick_menu")}}
-    merged["quick_menu"] = {**base.get("quick_menu", {}), **user.get("quick_menu", {})}
+    tables = ("quick_menu", "theme")
+    merged = {**base, **{k: v for k, v in user.items() if k not in ("rows", "hide", *tables)}}
+    for table in tables:
+        merged[table] = {**base.get(table, {}), **user.get(table, {})}
     rows = [{**r, "apps": [dict(a) for a in r.get("apps", [])]} for r in base.get("rows", [])]
     by_title = {r.get("title"): r for r in rows}
     new_rows = []

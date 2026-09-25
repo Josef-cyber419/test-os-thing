@@ -29,7 +29,7 @@ from .gamescope import Gamescope, appid_for
 log = logging.getLogger("hearth")
 
 TITLE = "Hearth Quick Menu"
-ANIM_SECONDS = 0.22
+ANIM_SECONDS = 0.3
 REFRESH_SECONDS = 1.5
 # After a change, re-read audio state this soon (not instantly: holding a
 # direction on a slider would otherwise run pactl every repeat).
@@ -124,7 +124,7 @@ class Overlay:
         self.size = size
         self.render_size = (int(size[0] * scale), int(size[1] * scale))
         self.surface = pygame.Surface(self.render_size, pygame.SRCALPHA)
-        self.view = QuickMenuView(self.render_size)
+        self.view = QuickMenuView(self.render_size, config.livery, config.motion)
 
         self.open = False
         self.t = 0.0
@@ -216,6 +216,7 @@ class Overlay:
 
     def open_menu(self) -> None:
         self.config = load_config(self.config_path, self.config)
+        self.view.set_theme(self.config.livery, self.config.motion)
         self.state = session.read()
         fg = self.state["foreground"]
         if fg and not fg.get("home_button", True) and self.state["focus"] == "foreground":

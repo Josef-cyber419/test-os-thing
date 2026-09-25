@@ -37,11 +37,17 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - **TV home screen**: rows of tiles (Play / Watch / System), clock, confirm
   dialogs for power actions. Scales cleanly from 720p to 4K.
+- **Heritage racing look**: tiles painted like period race cars (deep enamel,
+  twin stripes, a number roundel), condensed signwriter type, and a choice of
+  liveries: Gulf, Martini, British Racing Green, Rosso, Silver Arrow. Motion is
+  eased and frame-rate independent: a stripe sweep at power-on, tiles that
+  cascade in, a focus stripe that glides between tiles, and a launch where the
+  tile opens out to fill the screen. `motion = "reduced"` turns the decoration off.
 - **Works with anything you hold**: Xbox/PlayStation/8BitDo controllers (SDL
   GameController mappings), TV remotes over HDMI-CEC, IR remotes via FLIRC, and
   keyboards.
 - **Quick Menu, over any game**: tap the controller's **Guide** button for a
-  frosted-glass panel over whatever's playing, with the game paused. Switch audio
+  panel over whatever's playing, in the same livery, with the game paused. Switch audio
   output and microphone, set volumes, mix per-app volume, run Discord in the
   background (mute, deafen, voice volume, or bring it up with the controller as a
   mouse), and sleep/restart/power off. See [docs/QUICK_MENU.md](docs/QUICK_MENU.md).

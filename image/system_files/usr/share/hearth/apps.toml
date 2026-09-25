@@ -23,6 +23,17 @@
 
 title = "Hearth"
 
+# The look, after a classic racing livery:
+#   gulf     powder blue and marigold orange (default)
+#   martini  navy, light blue and red
+#   brg      British racing green with a yellow stripe
+#   rosso    racing red with a yellow stripe
+#   silver   silver-arrow grey
+[theme]
+livery = "gulf"
+# "reduced" turns off the intro, launch zoom and other decorative motion.
+motion = "full"
+
 # The Quick Menu (tap the Guide button): audio, per-app volume, Discord, power.
 [quick_menu]
 # Pause the game while the menu is open, like a console's home menu.

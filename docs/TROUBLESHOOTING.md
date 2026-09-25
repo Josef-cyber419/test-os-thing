@@ -52,6 +52,10 @@ want to change:
 ```toml
 hide = ["plex", "android"]        # remove default tiles
 
+[theme]
+livery = "martini"                # gulf, martini, brg, rosso or silver
+motion = "reduced"                # no intro or launch zoom; menus move instantly
+
 [quick_menu]
 pause_game = false                # keep games running under the Quick Menu
 

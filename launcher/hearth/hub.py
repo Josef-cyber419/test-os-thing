@@ -124,6 +124,12 @@ def open_display(windowed: bool) -> pygame.Surface:
     pygame.mouse.set_visible(windowed)
     if windowed:
         return pygame.display.set_mode((1280, 720))
+    # Draw at up to 1080p and let SDL scale it on the GPU, so animation stays
+    # smooth on a 4K TV (the UI's sizes follow the screen height anyway).
+    info = pygame.display.Info()
+    if info.current_h > 1080:
+        size = (round(info.current_w * 1080 / info.current_h), 1080)
+        return pygame.display.set_mode(size, pygame.FULLSCREEN | pygame.SCALED)
     return pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 
@@ -174,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
         k: v for k, v in s["background"].items() if session.background_alive(v)}))
 
     dev_mode = args.windowed or args.dry_run
-    state = {"last_id": None, "message": None, "surface": None}
+    state = {"last_id": None, "message": None, "surface": None, "intro": "boot"}
     failures: list[float] = []
     while True:
         try:
@@ -219,8 +225,10 @@ def step(args, gs: Gamescope | None, overlay: OverlayProcess | None, dev_mode: b
     app = ui.run(state["surface"], home, config.title, message=state["message"], allow_quit=dev_mode,
                  input_blocked=lambda: session.read()["overlay_open"],
                  badge="Update ready: restart to finish" if ready else None,
-                 running=set(current["background"]))
+                 running=set(current["background"]), livery=config.livery, motion=config.motion,
+                 intro=state["intro"])
     state["message"] = None
+    state["intro"] = None
     if app is None:
         return "quit"
     state["last_id"] = app.id
@@ -235,8 +243,9 @@ def step(args, gs: Gamescope | None, overlay: OverlayProcess | None, dev_mode: b
         # Keep a "Starting…" screen up; gamescope switches to the app as soon
         # as its window appears (see session.focus_order), instead of
         # showing black while it loads.
-        ui.draw_loading(state["surface"], app)
+        ui.draw_loading(state["surface"], app, config.livery)
         state["message"] = launch(app, dry_run=args.dry_run, gs=gs)
+        state["intro"] = "return"
         pygame.event.clear()  # drop input that queued up while the app ran
         return None
 
@@ -245,4 +254,5 @@ def step(args, gs: Gamescope | None, overlay: OverlayProcess | None, dev_mode: b
     pygame.quit()
     state["surface"] = None
     state["message"] = launch(app, dry_run=args.dry_run, gs=gs)
+    state["intro"] = "return"
     return None

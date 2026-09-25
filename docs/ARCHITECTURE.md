@@ -83,7 +83,8 @@ the menu is open), written under a file lock.
 | `launcher/hearth/ctl.py` | `hearthctl`: status, doctor, logs, update, rollback, enable/disable, dev mode. |
 | `launcher/hearth/logs.py` | Log to the journal and `~/.local/state/hearth/hearth.log` (rotated). |
 | `usr/libexec/hearth/hearth-update` | Root helper (narrow sudoers rule): run Bazzite's `uupd`, or `bootc rollback`. |
-| `launcher/hearth/ui.py` | Rendering (tiles, rows, header, confirm dialog). Sizes derived from screen height. |
+| `launcher/hearth/ui.py` | Rendering (tiles, rows, header, confirm dialog) and the intro and launch transitions. Sizes derived from screen height; above 1080p it draws at 1080p and SDL scales on the GPU. |
+| `launcher/hearth/style.py` | The shared look: liveries, the bundled Barlow typeface (SIL Open Font License, `launcher/hearth/fonts/`), stripes, roundels, and frame-rate independent easing. |
 | `launcher/hearth/model.py` | Navigation state (rows remember their column). No pygame, easy to test. |
 | `launcher/hearth/input.py` | Keyboard / CEC / FLIRC / gamepad → `Nav` actions, stick auto-repeat. |
 | `launcher/hearth/homebutton.py` | While an app runs, watches `/dev/input` (read-only) for Guide held 1.5s or `KEY_HOMEPAGE`, then closes the app. |
