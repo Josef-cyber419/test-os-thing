@@ -7,7 +7,7 @@ overlay's opacity); pixels come from each window in Xwayland; the overlay is
 alpha-blended on top the way gamescope composites it. Audio: the real
 PipeWire output (TV and headset monitors).
 """
-import json, os, subprocess, sys, threading, time
+import json, os, pathlib, subprocess, sys, tarfile, threading, time
 sys.path.insert(0, "/src/launcher")
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
@@ -253,6 +253,20 @@ wait_for("game closed, back home", lambda: state()["foreground"] is None
 say("Home again", "Discord keeps running in the background (green dot)")
 check("Discord still running", "discord" in state()["background"])
 time.sleep(3.5)
+
+# 10. a troubleshooting report, with a screenshot
+say("Report a problem", "hearthctl report: logs, hardware, timeline and a screenshot in one file")
+ctl("report", "--screenshot", "-o", f"{OUT}/reports")
+bundle = sorted(pathlib.Path(f"{OUT}/reports").glob("hearth-report-*.tar.gz"))[-1]
+with tarfile.open(bundle) as tar:
+    files = {n.split("/", 1)[1]: n for n in tar.getnames()}
+    shown = tar.extractfile(files["graphics/gamescope.txt"]).read().decode()
+    if "screen.png" in files:
+        open(f"{OUT}/report-screen.png", "wb").write(tar.extractfile(files["screen.png"]).read())
+check("report has a screenshot", "screen.png" in files)
+check("report shows what gamescope is focusing", "GAMESCOPE_FOCUSED_APP = [" in shown and "Hearth" in shown)
+check("report has the event timeline", "hearth/events.jsonl" in files)
+time.sleep(1)
 
 rec.running = False
 rec.join()

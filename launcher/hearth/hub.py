@@ -22,7 +22,7 @@ from pathlib import Path
 import pygame
 
 from . import config as cfg
-from . import homebutton, logs, session, ui
+from . import events, homebutton, logs, session, ui, updates
 from .gamescope import HOME_APPID, Gamescope
 from .model import Home
 
@@ -47,9 +47,11 @@ def launch(app: cfg.App, dry_run: bool = False, gs: Gamescope | None = None) -> 
         proc, unit = session.spawn("app", app.id, app.command)
     except OSError as e:
         log.error("failed to start %s: %s", app.id, e)
+        events.record("launch_failed", id=app.id, error=str(e))
         return f"Couldn't start {app.name}: {e.strerror or e}"
+    events.record("app_start", id=app.id, scope=bool(unit))
 
-    info = {"id": app.id, "name": app.name, "unit": unit, "pid": proc.pid,
+    info = {"id": app.id, "name": app.name, "unit": unit, "pid": proc.pid, "started": time.time(),
             "home_button": app.home_button, "tag_windows": app.tag_windows}
     state = session.update(lambda s: s.update(foreground=info, focus="foreground"))
     if gs:
@@ -74,11 +76,15 @@ def launch(app: cfg.App, dry_run: bool = False, gs: Gamescope | None = None) -> 
         if watcher:
             watcher.stop()
         session.update(lambda s: s.update(foreground=None, focus="home", paused=False))
-    if sent_home:
-        return None
     elapsed = time.monotonic() - started
+    if sent_home:
+        events.record("app_exit", id=app.id, ended="guide", seconds=round(elapsed, 1))
+        return None
     log.info("%s exited with %s after %.1fs", app.id, returncode, elapsed)
-    if returncode != 0 and elapsed < QUICK_FAIL_SECONDS:
+    failed = returncode != 0 and elapsed < QUICK_FAIL_SECONDS
+    events.record("app_exit", id=app.id, ended="failed" if failed else "exited", code=returncode,
+                  seconds=round(elapsed, 1))
+    if failed:
         return f"{app.name} closed unexpectedly (exit code {returncode})"
     return None
 
@@ -129,8 +135,12 @@ def open_display(windowed: bool) -> pygame.Surface:
     info = pygame.display.Info()
     if info.current_h > 1080:
         size = (round(info.current_w * 1080 / info.current_h), 1080)
-        return pygame.display.set_mode(size, pygame.FULLSCREEN | pygame.SCALED)
-    return pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        surface = pygame.display.set_mode(size, pygame.FULLSCREEN | pygame.SCALED)
+    else:
+        surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    events.record("display", screen=f"{info.current_w}x{info.current_h}",
+                  drawn_at="x".join(map(str, surface.get_size())), driver=pygame.display.get_driver())
+    return surface
 
 
 def show_home(gs: Gamescope | None) -> None:
@@ -157,6 +167,7 @@ class OverlayProcess:
         if self.proc is None or self.proc.poll() not in (None, 0):
             if self.proc is not None:
                 log.warning("Quick Menu overlay exited (%s); restarting", self.proc.returncode)
+                events.record("overlay_restart", code=self.proc.returncode)
             self.proc = subprocess.Popen(self.args)
 
 
@@ -170,6 +181,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="run the Quick Menu overlay (default: on under gamescope)")
     args = parser.parse_args(argv)
     logs.setup("hub")
+    events.record("session_start", version=updates.hearth_version(), game_mode=bool(
+        os.environ.get("GAMESCOPE_WAYLAND_DISPLAY")), pygame=pygame.version.ver, sdl=".".join(
+        map(str, pygame.get_sdl_version())))
 
     in_gamescope = bool(os.environ.get("GAMESCOPE_WAYLAND_DISPLAY"))
     gs = Gamescope.connect() if in_gamescope else None
@@ -222,13 +236,17 @@ def step(args, gs: Gamescope | None, overlay: OverlayProcess | None, dev_mode: b
     show_home(gs)
     current = session.read()
     ready = (current.get("update") or {}).get("status") == "ready"
-    app = ui.run(state["surface"], home, config.title, message=state["message"], allow_quit=dev_mode,
+    stats = events.FrameStats()
+    app = ui.run(state["surface"], home, config.title, message=state["message"], allow_quit=dev_mode, stats=stats,
                  input_blocked=lambda: session.read()["overlay_open"],
                  badge="Update ready: restart to finish" if ready else None,
                  running=set(current["background"]), livery=config.livery, motion=config.motion,
                  intro=state["intro"])
     state["message"] = None
     state["intro"] = None
+    frames = stats.summary()
+    if frames:
+        events.record("home_frames", **frames)
     if app is None:
         return "quit"
     state["last_id"] = app.id

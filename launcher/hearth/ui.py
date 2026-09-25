@@ -537,6 +537,7 @@ def run(
     livery: str = "gulf",
     motion: str = "full",
     intro: str | None = None,
+    stats=None,
 ) -> App | None:
     """Show the home screen until the user picks an app.
 
@@ -544,6 +545,7 @@ def run(
     `input_blocked` is polled a few times a second; while it's true (the Quick
     Menu is open over the home screen), input is ignored. `intro` is "boot"
     for the power-on animation, "return" for coming back from an app.
+    `stats` (events.FrameStats) collects frame times.
     """
     screen = HomeScreen(surface, home, title, livery=livery, motion=motion, intro=intro)
     screen.message = message
@@ -581,6 +583,8 @@ def run(
                 return app
         screen.draw()
         pygame.display.flip()
+        if stats is not None:
+            stats.tick()
         clock.tick(60)
     return None
 

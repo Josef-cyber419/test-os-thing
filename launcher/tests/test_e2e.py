@@ -233,3 +233,14 @@ def test_full_session(harness):
     wait_for("discord in front", lambda: h.front_appid() == appid_for("discord"))
     time.sleep(0.5)
     assert len([w for w in h.gs.top_level_windows() if h.gs.window_title(w) == "Discord"]) == 1
+
+    # 8. The event timeline recorded the session, for `hearthctl report`.
+    timeline = [json.loads(line) for line in (h.tmp / "state/hearth/events.jsonl").read_text().splitlines()]
+    kinds = [(e["by"], e["event"], e.get("id")) for e in timeline]
+    for expected in [("hub", "session_start", None), ("hub", "app_start", "game"),
+                     ("overlay", "app_window", "game"), ("overlay", "menu_open", None),
+                     ("overlay", "menu_close", None), ("hub", "app_exit", "game"),
+                     (None, "background_start", "discord")]:
+        assert any(expected[0] in (None, k[0]) and k[1] == expected[1] and (expected[2] is None or k[2] == expected[2]) for k in kinds), expected
+    exit_event = next(e for e in timeline if e["event"] == "app_exit")
+    assert exit_event["ended"] == "exited" and exit_event["seconds"] > 0

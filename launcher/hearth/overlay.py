@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 from . import config as cfg
-from . import homebutton, logs, session, updates
+from . import events, homebutton, logs, session, updates
 from .audio import Audio, Snapshot, reset_restored_discord_mutes
 from .gamescope import Gamescope, appid_for
 
@@ -83,6 +83,7 @@ class Actions:
         return None
 
     def power(self, action):
+        events.record("power", action=action)
         self.o.thaw()
         subprocess.Popen(["systemctl", action])
         return "close"
@@ -91,6 +92,13 @@ class Actions:
         if (session.read().get("update") or {}).get("status") != "running":
             session.update(lambda s: s.__setitem__("update", {"status": "running"}))
             threading.Thread(target=self.o.run_update, daemon=True).start()
+        self.o.refresh(force=True)
+        return None  # stay open to show progress
+
+    def report(self):
+        if (session.read().get("report") or {}).get("status") != "running":
+            session.update(lambda s: s.__setitem__("report", {"status": "running"}))
+            threading.Thread(target=self.o.run_report, daemon=True).start()
         self.o.refresh(force=True)
         return None  # stay open to show progress
 
@@ -134,6 +142,9 @@ class Overlay:
         self._refreshed = 0.0
         self._housekept = 0.0
         self._seen: set[int] = set()
+        self._first_window: set[tuple] = set()  # launches whose first window we've timed
+        self._opened_at = 0.0
+        self.frames = events.FrameStats()
         self._tries: dict[int, int] = {}
         self._liveness_ticks = 0
         self._audio_error: str | None = None
@@ -185,6 +196,20 @@ class Overlay:
         ok = updates.run_helper("apply", logs.log_path())
         updates.update_esde()
         self.check_staged(failed=not ok)
+        events.record("update", ok=ok, result=(session.read().get("update") or {}).get("status"))
+
+    def run_report(self) -> None:
+        from . import report
+
+        try:
+            path = report.make(with_screenshot=True)
+            log.info("report saved: %s", path)
+            result = {"status": "done", "file": path.name}
+        except Exception:
+            log.exception("report failed")
+            result = {"status": "failed"}
+        session.update(lambda s: s.__setitem__("report", result))
+        self._refreshed = 0.0  # show the result next frame
 
     def check_staged(self, failed: bool = False) -> None:
         """Record whether an update is downloaded and waiting for a restart
@@ -226,6 +251,9 @@ class Overlay:
         session.update(lambda s: s.update(overlay_open=True, paused=bool(self.paused_unit)))
         self.opened_for = (fg or {}).get("id")
         self.open = True
+        self._opened_at = time.monotonic()
+        self.frames = events.FrameStats()
+        events.record("menu_open", over=self.opened_for or self.state["focus"], paused=bool(self.paused_unit))
         self.pointer.reset()
         if self.gs and self.xwin:
             self.gs.set_overlay_visible(self.xwin, True, 1.0 if self.transparent else FALLBACK_OPACITY)
@@ -234,6 +262,8 @@ class Overlay:
         self.open = False  # the slide-out animation finishes in run()
 
     def _hidden(self) -> None:
+        events.record("menu_close", seconds=round(time.monotonic() - self._opened_at, 1),
+                      **(self.frames.summary() or {}))
         if self.gs and self.xwin:
             self.gs.set_overlay_visible(self.xwin, False)
         self.thaw()
@@ -323,8 +353,19 @@ class Overlay:
                 continue
             self.gs.tag(win, appid)
             self._seen.add(win.id)
+            self._time_first_window(appid)
         self._seen &= present
         self._tries = {k: v for k, v in self._tries.items() if k in present}
+
+    def _time_first_window(self, appid: int) -> None:
+        """How long the app in front took to show its first window."""
+        fg = self.state["foreground"]
+        if not fg or appid != appid_for(fg["id"]) or not fg.get("started"):
+            return
+        key = (fg["id"], fg["started"])
+        if key not in self._first_window:
+            self._first_window.add(key)
+            events.record("app_window", id=fg["id"], seconds=round(time.time() - fg["started"], 1))
 
     def owner_appid(self, win) -> int | None:
         state = self.state
@@ -404,6 +445,7 @@ class Overlay:
         r.clear()
         tex.draw(dstrect=(0, 0, *self.size))
         r.present()
+        self.frames.tick()
 
     def run(self) -> None:
         clock = self.pg.time.Clock()

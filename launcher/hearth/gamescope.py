@@ -150,6 +150,11 @@ class Gamescope:
 
     # -- overlay ---------------------------------------------------------------
 
+    def request_screenshot(self, kind: int = 3) -> None:
+        """Ask gamescope to save the screen to /tmp/gamescope.png. kind 3 is
+        the full composition: the app plus any overlays on top of it."""
+        self._set_cardinals(self.root, "GAMESCOPECTRL_REQUEST_SCREENSHOT", [kind])
+
     def make_overlay(self, win) -> None:
         self._set_cardinals(win, "STEAM_OVERLAY", [1])
         self.set_overlay_visible(win, False)

@@ -81,7 +81,9 @@ the menu is open), written under a file lock.
 | `launcher/hearth/pointer.py` | Controller → virtual mouse/keyboard (uinput) for apps without a TV interface. |
 | `launcher/hearth/updates.py` | OS version and staged updates (`rpm-ostree status`), running updates through `hearth-update`. |
 | `launcher/hearth/ctl.py` | `hearthctl`: status, doctor, logs, update, rollback, enable/disable, dev mode. |
-| `launcher/hearth/logs.py` | Log to the journal and `~/.local/state/hearth/hearth.log` (rotated). |
+| `launcher/hearth/logs.py` | Log to the journal and `~/.local/state/hearth/hearth.log` (rotated); stack traces of hard crashes to `crash-*.txt`. |
+| `launcher/hearth/events.py` | The event timeline (`~/.local/state/hearth/events.jsonl`): launches, exits and how they ended, time to first window, Quick Menu use, frame-rate summaries, crashes. |
+| `launcher/hearth/report.py` | `hearthctl report` / Quick Menu → Report a problem: one `.tar.gz` with system details, logs, the timeline and a screenshot, with personal details masked. |
 | `usr/libexec/hearth/hearth-update` | Root helper (narrow sudoers rule): run Bazzite's `uupd`, or `bootc rollback`. |
 | `launcher/hearth/ui.py` | Rendering (tiles, rows, header, confirm dialog) and the intro and launch transitions. Sizes derived from screen height; above 1080p it draws at 1080p and SDL scales on the GPU. |
 | `launcher/hearth/style.py` | The shared look: liveries, the bundled Barlow typeface (SIL Open Font License, `launcher/hearth/fonts/`), stripes, roundels, and frame-rate independent easing. |
@@ -126,11 +128,12 @@ screen shows what went wrong).
 
 - **Real gamescope** (`tools/gamescope-lab/`, needs Docker): Hearth as the
   client of gamescope 3.16 in Steam mode, with real PipeWire, driven through a
-  scripted session with 17 checks and recorded to video. It confirms that
+  scripted session with 20 checks and recorded to video. It confirms that
   gamescope accepts and focuses Hearth's tagged windows, follows its
   front-app list between home, game and Discord, shows the Quick Menu overlay
   with input focus, and that audio switching, per-app volume, and Discord
-  mute/deafen change the real PipeWire streams.
+  mute/deafen change the real PipeWire streams, and that a problem report
+  captures the screen and gamescope's state.
 
 What none of these cover is real GPU rendering, real controllers, and
 pausing games (systemd scopes). That's the list below.

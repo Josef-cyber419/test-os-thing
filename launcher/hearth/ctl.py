@@ -4,6 +4,8 @@ or over SSH from another computer).
   hearthctl status          what's running, versions, pending update
   hearthctl doctor          check every part of the setup, with fixes
   hearthctl logs [-f]       Hearth's log (home screen + Quick Menu)
+  hearthctl events [-n N]   timeline: launches, exits, crashes, frame rates
+  hearthctl report          save everything needed to fix a problem, in one file
   hearthctl update          install OS + app updates now (restart to finish)
   hearthctl rollback        go back to the previous OS version
   hearthctl menu | home     open the Quick Menu / close the app and go home
@@ -16,6 +18,7 @@ from __future__ import annotations
 import argparse
 import glob
 import importlib
+import json
 import os
 import subprocess
 import sys
@@ -23,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import config as cfg
-from . import logs, session, updates
+from . import events, logs, session, updates
 
 SESSION_OVERRIDES = Path("/etc/gamescope-session-plus/sessions.d")
 LISTS = [Path("/usr/share/hearth/flatpaks.list"), Path("/usr/share/hearth/emulators.list")]
@@ -256,6 +259,28 @@ def cmd_logs(follow: bool, lines: int) -> int:
     return subprocess.call(["tail", "-n", str(lines), *(["-F"] if follow else []), str(path)])
 
 
+def cmd_events(lines: int, as_json: bool) -> int:
+    evts = events.read(lines)
+    if not evts:
+        print(f"No events yet ({events.path()})")
+        return 1
+    for e in evts:
+        print(json.dumps(e) if as_json else events.describe(e))
+    return 0
+
+
+def cmd_report(screenshot: bool, out: str | None) -> int:
+    from . import report
+
+    print("Collecting system details, logs and Hearth's timeline (about half a minute)…")
+    path = report.make(with_screenshot=screenshot, out_dir=Path(out).expanduser() if out else None,
+                       progress=lambda step: print(f"  {step}", flush=True) if sys.stdout.isatty() else None)
+    print(f"\nSaved: {path} ({path.stat().st_size // 1024} KB)")
+    print("Your user name, the PC's name and network/Bluetooth addresses are masked.")
+    print("Send this file with a description of what went wrong (and roughly when).")
+    return 0
+
+
 def cmd_request(kind: str) -> int:
     session.update(lambda s: s["requests"].append(kind))
     return 0
@@ -314,6 +339,7 @@ def cmd_dev(path: str | None, off: bool) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
     parser = argparse.ArgumentParser(prog="hearthctl", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -322,6 +348,12 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("logs")
     p.add_argument("-f", "--follow", action="store_true")
     p.add_argument("-n", "--lines", type=int, default=60)
+    p = sub.add_parser("events")
+    p.add_argument("-n", "--lines", type=int, default=50)
+    p.add_argument("--json", action="store_true", help="raw JSON lines")
+    p = sub.add_parser("report")
+    p.add_argument("--screenshot", action="store_true", help="include a screenshot (only works in Game Mode)")
+    p.add_argument("-o", "--out", help="folder to save to (default: ~/hearth-reports)")
     sub.add_parser("update")
     p = sub.add_parser("rollback")
     p.add_argument("-y", "--yes", action="store_true")
@@ -340,6 +372,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_doctor()
     if args.cmd == "logs":
         return cmd_logs(args.follow, args.lines)
+    if args.cmd == "events":
+        return cmd_events(args.lines, args.json)
+    if args.cmd == "report":
+        return cmd_report(args.screenshot, args.out)
     if args.cmd == "update":
         return cmd_update()
     if args.cmd == "rollback":

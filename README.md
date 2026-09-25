@@ -67,8 +67,10 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   home screen tells you when a restart will finish one), or on demand from the
   Quick Menu. Every update can be rolled back.
 - **Easy to fix**: `hearthctl doctor` checks the whole setup and tells you how to
-  fix problems; `hearthctl logs` has the details. See
-  [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+  fix problems; `hearthctl logs` has the details. **Report a problem** (Quick
+  Menu → System, or `hearthctl report`) saves logs, hardware details, a
+  screenshot and a timeline of what happened into one file you can send, with
+  personal details masked. See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Getting started
 
@@ -107,7 +109,7 @@ tools/gamescope-lab/run.sh   # needs Docker → tools/gamescope-lab/out/hearth-d
 ```
 
 Runs Hearth inside real gamescope (Steam mode) with real PipeWire, plays
-through a session with 17 checks, and records a video. See
+through a session with 20 checks, and records a video. See
 [tools/gamescope-lab](tools/gamescope-lab/README.md).
 
 ## Project status

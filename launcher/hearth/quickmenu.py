@@ -140,6 +140,7 @@ class Actions(Protocol):
     def stop_background(self, app_id: str) -> str | None: ...
     def power(self, action: str) -> str | None: ...
     def update(self) -> str | None: ...
+    def report(self) -> str | None: ...
 
 
 @dataclass
@@ -264,10 +265,24 @@ def _system_tab(ctx: Context) -> Tab:
         tab.items.append(Item("home", "Close " + fg["name"], "action", confirm=True,
                               detail="Return to the home screen", on_select=act.go_home))
     tab.items.append(_update_item(ctx))
+    tab.items.append(_report_item(ctx))
     tab.items.append(Item("sleep", "Sleep", "action", on_select=lambda: act.power("suspend")))
     tab.items.append(Item("restart", "Restart", "action", confirm=True, on_select=lambda: act.power("reboot")))
     tab.items.append(Item("poweroff", "Power off", "action", confirm=True, on_select=lambda: act.power("poweroff")))
     return tab
+
+
+def _report_item(ctx: Context) -> Item:
+    report = ctx.state.get("report") or {}
+    status = report.get("status")
+    if status == "running":
+        return Item("report", "Saving a report…", "info", detail="Takes about half a minute; keep playing")
+    detail = "Saves a screenshot and details for fixing a problem"
+    if status == "done":
+        detail = f"Saved {report.get('file')} in your hearth-reports folder"
+    elif status == "failed":
+        detail = "Couldn't save it; details: hearthctl logs"
+    return Item("report", "Report a problem", "action", detail=detail, on_select=ctx.actions.report)
 
 
 def _update_item(ctx: Context) -> Item:
