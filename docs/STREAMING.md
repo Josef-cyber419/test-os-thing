@@ -61,5 +61,4 @@ What to expect:
 - Good for: free/ad-supported streaming apps, IPTV players, Android games,
   apps that don't exist on Linux.
 - Not good for: Netflix, Disney+ and similar, for the DRM reasons above.
-- Works best on AMD and Intel graphics. NVIDIA needs software rendering, which is slow.
 - Hold the Guide button (or the remote's Home key) to return to Hearth.

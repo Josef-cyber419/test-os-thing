@@ -42,14 +42,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: hearth-os
-            base: ghcr.io/ublue-os/bazzite-deck:stable
-          - name: hearth-os-nvidia
-            base: ghcr.io/ublue-os/bazzite-deck-nvidia:stable
+    # AMD/Intel graphics only (Bazzite's default deck image). NVIDIA isn't
+    # supported: gamescope works best with the open AMD/Intel drivers.
     steps:
       - name: Free disk space
         # Bazzite images are large; the runner's preinstalled SDKs aren't needed.
@@ -63,10 +57,9 @@ jobs:
       - name: Build
         run: |
           # GHCR image names must be lowercase.
-          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.name }}"
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/hearth-os"
           echo "IMAGE=$image" >> "$GITHUB_ENV"
           podman build \
-            --build-arg BASE_IMAGE=${{ matrix.base }} \
             --build-arg HEARTH_VERSION="$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}" \
             --tag "$image:latest" \
             --tag "$image:${{ github.sha }}" \
