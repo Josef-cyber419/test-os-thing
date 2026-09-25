@@ -41,6 +41,7 @@ class App:
     color: str = "#3a3f58"
     icon: str | None = None
     requires: tuple[str, ...] = ()
+    requires_files: tuple[str, ...] = ()
     flatpak: str | None = None
     # Ask "are you sure?" before launching (power actions, desktop mode).
     confirm: bool = False
@@ -51,6 +52,8 @@ class App:
     def available(self) -> bool:
         """Hide tiles whose program isn't installed instead of failing on launch."""
         if self.flatpak and not any((d / self.flatpak).is_dir() for d in flatpak_dirs()):
+            return False
+        if not all(Path(f).exists() for f in self.requires_files):
             return False
         return all(shutil.which(req) for req in self.requires)
 
@@ -100,6 +103,9 @@ def _parse_app(raw: dict, where: str) -> App:
     requires = raw.get("requires", [])
     if isinstance(requires, str):
         requires = [requires]
+    requires_files = raw.get("requires_files", [])
+    if isinstance(requires_files, str):
+        requires_files = [requires_files]
     return App(
         id=raw["id"],
         name=raw["name"],
@@ -107,6 +113,7 @@ def _parse_app(raw: dict, where: str) -> App:
         color=raw.get("color", App.color),
         icon=raw.get("icon"),
         requires=tuple(requires),
+        requires_files=tuple(requires_files),
         flatpak=raw.get("flatpak"),
         confirm=bool(raw.get("confirm", False)),
         home_button=bool(raw.get("home_button", True)),

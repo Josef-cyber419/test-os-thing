@@ -4,17 +4,16 @@ A living-room PC that behaves like a smart TV and a console at the same time.
 
 Power it on and you land on a **TV-style home screen**, driven by a controller or
 your TV remote. Pick **Steam** to get the full Steam Deck-style console UI, or go
-straight to **emulation, Kodi, YouTube, Netflix, Jellyfin, Plex, Moonlight**, and
-more. Close the app and you're back home. **Boot Windows** is a tile too, for
-games whose anti-cheat won't run on Linux.
+straight to **emulation, Kodi, YouTube, Jellyfin, Plex, Moonlight**, and more.
+Close the app and you're back home. Every app on the home screen is chosen to
+work with just a controller or a TV remote, with no keyboard or mouse needed.
 
 ```
  power on ──► Hearth home screen ──► Steam (Big Picture / Game Mode)
                  ▲      │       ├──► Emulation (RetroDECK: ES-DE + emulators)
-                 │      │       ├──► Kodi · YouTube · Netflix · Jellyfin · Plex
+                 │      │       ├──► Kodi · YouTube · Jellyfin · Plex · Android
                  │      │       ├──► Moonlight (stream from another PC)
-                 │      │       ├──► Desktop Mode (KDE Plasma)
-                 │      │       └──► Boot Windows (one-time, then back to Linux)
+                 │      │       └──► Desktop Mode (KDE Plasma)
                  └──────┘  app exits, or hold the Guide button
 ```
 
@@ -28,8 +27,8 @@ Hearth doesn't write an OS from scratch. It **orchestrates** existing pieces:
 | Image | [`Containerfile`](Containerfile) | Hearth *is* a container image layered on Bazzite, built by CI and installed with `bootc switch` |
 | Session | [`/etc/gamescope-session-plus/sessions.d/`](image/system_files/etc/gamescope-session-plus/sessions.d) | Hearth replaces Steam as the first app in Bazzite's Game Mode and keeps every Game Mode setting |
 | Home screen | [`launcher/`](launcher) (Python + SDL2) | 10-foot UI, gamepad/remote/keyboard input, runs apps and returns home |
-| Apps | Flatpaks + small scripts in [`/usr/libexec/hearth`](image/system_files/usr/libexec/hearth) | Kodi, RetroDECK, Moonlight, Chrome kiosk for streaming sites |
-| Extras | HDMI-CEC, reboot-to-Windows, first-boot app installer | See below |
+| Apps | Flatpaks + small scripts in [`/usr/libexec/hearth`](image/system_files/usr/libexec/hearth) | Kodi, RetroDECK, Moonlight, VacuumTube (YouTube's TV interface), Jellyfin and Plex in TV mode |
+| Extras | HDMI-CEC, first-boot app installer | See below |
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -43,8 +42,9 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Always a way home**: hold the controller's **Guide** button for 1.5s, or
   press **Home** on a remote, to close the current app and return. In Steam, use
   *Power → Switch to Desktop*, which Hearth turns into "back to home".
-- **Dual boot, console-style**: the *Boot Windows* tile sets the firmware's
-  one-time `BootNext`, so the next reboot goes back to Hearth automatically.
+- **Remote-friendly apps only**: every default tile uses a TV/console interface
+  (see [Streaming services](docs/STREAMING.md) for why Netflix and similar
+  services aren't there, and the options for adding them).
 - **Your TV follows the PC**: with a CEC adapter, the TV turns on and switches
   input when the PC wakes, and goes to standby when it sleeps.
 - **Customisable without rebuilding**: copy

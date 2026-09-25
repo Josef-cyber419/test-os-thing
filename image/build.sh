@@ -8,8 +8,7 @@ set -euxo pipefail
 #   python3-evdev      "hold Guide to go home" button watcher
 #   v4l-utils          cec-ctl, for HDMI-CEC TV control
 #   linuxconsoletools  inputattach, for the Pulse-Eight USB-CEC adapter
-#   efibootmgr         "Boot Windows" tile (one-shot EFI BootNext)
-dnf5 -y install python3-pygame python3-evdev v4l-utils linuxconsoletools efibootmgr
+dnf5 -y install python3-pygame python3-evdev v4l-utils linuxconsoletools
 
 # --- check that Game Mode will actually start Hearth ------------------------
 # Hearth hooks in through /etc/gamescope-session-plus/sessions.d/<session>,
@@ -40,7 +39,6 @@ fi
 systemctl enable hearth-flatpak-setup.service hearth-cec-poweroff.service
 
 # --- sanity checks ------------------------------------------------------------
-visudo -cf /etc/sudoers.d/hearth
 python3 -m compileall -q /usr/lib/hearth/python
 PYTHONPATH=/usr/lib/hearth/python python3 -c \
     'import hearth.config as c; c.load(c.SYSTEM_CONFIG)'

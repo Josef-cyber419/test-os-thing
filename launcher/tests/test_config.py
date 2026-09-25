@@ -55,6 +55,14 @@ def test_visible_hides_missing_apps_and_empty_rows(tmp_path, monkeypatch):
     assert [a.id for a in config.rows[0].apps] == ["sh", "kodi"]
 
 
+def test_requires_files(tmp_path):
+    raw = {"id": "a", "name": "A", "command": "sh", "requires_files": str(tmp_path / "marker")}
+    config = cfg.parse({"rows": [{"apps": [raw]}]})
+    assert config.visible().rows == ()
+    (tmp_path / "marker").touch()
+    assert len(config.visible().rows) == 1
+
+
 def test_user_config_overrides_system(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     (tmp_path / "hearth").mkdir()

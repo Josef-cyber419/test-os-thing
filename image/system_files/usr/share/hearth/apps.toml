@@ -9,6 +9,7 @@
 #   color    tile color, e.g. "#1b2838"
 #   icon     path to a PNG shown on the tile
 #   requires commands that must exist on PATH, or the tile is hidden
+#   requires_files  files that must exist, or the tile is hidden
 #   confirm  ask "are you sure?" first (power actions)
 #   home_button  false = don't close the app when Guide is held (default true)
 #
@@ -52,23 +53,17 @@ title = "Watch"
   color = "#17b2e7"
 
   [[rows.apps]]
+  # VacuumTube wraps YouTube's own TV/console interface, so it works with a
+  # controller or remote the same way YouTube does on a smart TV.
   id = "youtube"
   name = "YouTube"
-  command = ["/usr/libexec/hearth/hearth-web", "https://www.youtube.com/tv"]
-  requires = ["flatpak"]
+  flatpak = "rocks.shy.VacuumTube"
   color = "#c4302b"
-
-  [[rows.apps]]
-  id = "netflix"
-  name = "Netflix"
-  command = ["/usr/libexec/hearth/hearth-web", "https://www.netflix.com"]
-  requires = ["flatpak"]
-  color = "#b20710"
 
   [[rows.apps]]
   id = "jellyfin"
   name = "Jellyfin"
-  flatpak = "com.github.iwalton3.jellyfin-media-player"
+  flatpak = "org.jellyfin.JellyfinDesktop"
   args = ["--tv", "--fullscreen"]
   color = "#5a3e8f"
 
@@ -79,10 +74,14 @@ title = "Watch"
   color = "#cc7b19"
 
   [[rows.apps]]
-  id = "spotify"
-  name = "Spotify"
-  flatpak = "com.spotify.Client"
-  color = "#1db954"
+  # Android apps via Waydroid, using Bazzite's Game Mode launcher. Hidden
+  # until Android is set up (`ujust setup-waydroid`); see docs/STREAMING.md.
+  id = "android"
+  name = "Android"
+  command = "/usr/bin/waydroid-launcher"
+  requires = ["waydroid"]
+  requires_files = ["/var/lib/waydroid/waydroid.cfg"]
+  color = "#2e7d32"
 
 [[rows]]
 title = "System"
@@ -93,14 +92,6 @@ title = "System"
   command = "/usr/libexec/hearth/hearth-desktop"
   confirm = true
   color = "#2d5f8b"
-
-  [[rows.apps]]
-  id = "windows"
-  name = "Boot Windows"
-  command = ["/usr/libexec/hearth/hearth-reboot-to", "windows"]
-  requires = ["efibootmgr"]
-  confirm = true
-  color = "#0067b8"
 
   [[rows.apps]]
   id = "sleep"

@@ -1,2 +1,0 @@
-# Let the Hearth "Boot Windows" tile set the one-shot EFI boot entry.
-%wheel ALL=(root) NOPASSWD: /usr/libexec/hearth/hearth-bootnext
