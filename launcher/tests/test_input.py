@@ -40,3 +40,23 @@ def test_joystick_fallback_hat():
     m = InputMapper()
     assert m.translate(ev(pygame.JOYHATMOTION, instance_id=9, hat=0, value=(0, 1))) is Nav.UP
     assert m.translate(ev(pygame.JOYBUTTONDOWN, instance_id=9, button=0)) is Nav.SELECT
+
+
+def test_held_dpad_repeats_until_released():
+    m = InputMapper()
+    down = ev(pygame.CONTROLLERBUTTONDOWN, button=pygame.CONTROLLER_BUTTON_DPAD_RIGHT)
+    assert m.translate(down, now_ms=0) is Nav.RIGHT
+    assert m.repeat(AXIS_REPEAT_DELAY_MS - 1) is None
+    assert m.repeat(AXIS_REPEAT_DELAY_MS) is Nav.RIGHT
+    m.translate(ev(pygame.CONTROLLERBUTTONUP, button=pygame.CONTROLLER_BUTTON_DPAD_RIGHT), now_ms=900)
+    assert m.repeat(5000) is None
+
+
+def test_held_key_repeats_but_select_does_not():
+    m = InputMapper()
+    m.translate(ev(pygame.KEYDOWN, key=pygame.K_RETURN), now_ms=0)
+    assert m.repeat(5000) is None
+    m.translate(ev(pygame.KEYDOWN, key=pygame.K_DOWN), now_ms=0)
+    assert m.repeat(AXIS_REPEAT_DELAY_MS) is Nav.DOWN
+    m.reset()
+    assert m.repeat(9000) is None

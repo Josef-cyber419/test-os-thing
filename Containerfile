@@ -15,9 +15,12 @@ FROM ${BASE_IMAGE}
 COPY image/system_files /
 COPY launcher/hearth /usr/lib/hearth/python/hearth
 
+# Stamped into /usr/share/hearth/version.json; CI passes the git commit.
+ARG HEARTH_VERSION=dev
+
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh
+    HEARTH_VERSION=${HEARTH_VERSION} /ctx/build.sh
 
 RUN bootc container lint

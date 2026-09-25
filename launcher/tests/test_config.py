@@ -85,3 +85,48 @@ def test_bad_toml_is_config_error(tmp_path):
     p.write_text("rows = [")
     with pytest.raises(cfg.ConfigError):
         cfg.load(p)
+
+
+def test_user_changes_layer_over_defaults(tmp_path, monkeypatch, shipped_config):
+    monkeypatch.setattr(cfg, "SYSTEM_CONFIG", shipped_config)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    (tmp_path / "hearth").mkdir()
+    (tmp_path / "hearth/apps.toml").write_text("""
+hide = ["plex"]
+[quick_menu]
+pause_game = false
+[[rows]]
+title = "Watch"
+  [[rows.apps]]
+  id = "kodi"
+  color = "#000000"
+  [[rows.apps]]
+  id = "twitch"
+  name = "Twitch"
+  flatpak = "tv.twitch.Twitch"
+[[rows]]
+title = "Mine"
+  [[rows.apps]]
+  id = "shell"
+  name = "Shell"
+  command = "sh"
+""")
+    config = cfg.load()
+    titles = [r.title for r in config.rows]
+    assert titles[-2:] == ["Mine", "System"]  # new rows go before System
+    watch = next(r for r in config.rows if r.title == "Watch")
+    ids = [a.id for a in watch.apps]
+    assert "plex" not in ids and ids[-1] == "twitch"
+    kodi = config.app("kodi")
+    assert kodi.color == "#000000" and kodi.command == ("flatpak", "run", "tv.kodi.Kodi")
+    assert config.pause_game is False
+    assert config.app("steam") is not None  # defaults still there
+
+
+def test_replace_ignores_defaults(tmp_path, monkeypatch, shipped_config):
+    monkeypatch.setattr(cfg, "SYSTEM_CONFIG", shipped_config)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    (tmp_path / "hearth").mkdir()
+    (tmp_path / "hearth/apps.toml").write_text('replace = true\ntitle = "Mine"\n')
+    config = cfg.load()
+    assert config.title == "Mine" and config.rows == ()

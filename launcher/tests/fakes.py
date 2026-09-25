@@ -68,3 +68,6 @@ class FakeActions:
 
     def power(self, action):
         return self._record("power", action)
+
+    def update(self):
+        return self._record("update")

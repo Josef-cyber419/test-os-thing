@@ -17,11 +17,12 @@ import logging
 import os
 import queue
 import subprocess
+import threading
 import time
 from pathlib import Path
 
 from . import config as cfg
-from . import homebutton, session
+from . import homebutton, logs, session, updates
 from .audio import Audio, Snapshot
 from .gamescope import Gamescope, appid_for
 
@@ -30,7 +31,11 @@ log = logging.getLogger("hearth")
 TITLE = "Hearth Quick Menu"
 ANIM_SECONDS = 0.22
 REFRESH_SECONDS = 1.5
+# After a change, re-read audio state this soon (not instantly: holding a
+# direction on a slider would otherwise run pactl every repeat).
+AFTER_CHANGE_SECONDS = 0.35
 HOUSEKEEPING_SECONDS = 0.5
+UPDATE_CHECK_SECONDS = 30 * 60
 # Without real transparency, the whole overlay is drawn at this opacity.
 FALLBACK_OPACITY = 0.93
 
@@ -45,10 +50,12 @@ class Actions:
         return "close"
 
     def go_home(self):
-        fg = session.read()["foreground"]
-        if fg:
+        state = session.read()
+        if state["foreground"]:
             self.o.thaw()
-            session.stop_entry(fg)
+            session.stop_entry(state["foreground"])
+        elif state["focus"] != "home":  # e.g. Discord in front of the home screen
+            self.show("home")
         return "close"
 
     def start_background(self, app_id):
@@ -80,9 +87,17 @@ class Actions:
         subprocess.Popen(["systemctl", action])
         return "close"
 
+    def update(self):
+        if (session.read().get("update") or {}).get("status") != "running":
+            session.update(lambda s: s.__setitem__("update", {"status": "running"}))
+            threading.Thread(target=self.o.run_update, daemon=True).start()
+        self.o.refresh(force=True)
+        return None  # stay open to show progress
+
 
 class Overlay:
-    def __init__(self, config: cfg.Config, gs: Gamescope | None, window, renderer, xwin, transparent: bool) -> None:
+    def __init__(self, config: cfg.Config, gs: Gamescope | None, window, renderer, xwin, transparent: bool,
+                 config_path: Path | None = None) -> None:
         import pygame
 
         from .input import InputMapper
@@ -92,6 +107,7 @@ class Overlay:
 
         self.pg = pygame
         self.config = config
+        self.config_path = config_path
         self.gs, self.window, self.renderer, self.xwin = gs, window, renderer, xwin
         self.transparent = transparent
         self.audio = Audio()
@@ -119,7 +135,10 @@ class Overlay:
         self._housekept = 0.0
         self._seen: set[int] = set()
         self._tries: dict[int, int] = {}
+        self._liveness_ticks = 0
+        self._audio_error: str | None = None
 
+        self._update_checked = 0.0
         self.events: queue.Queue[str] = queue.Queue()
         homebutton.Watcher(lambda: self.events.put("tap"), homebutton.GuideTap, repeat=True).start()
         homebutton.Watcher(lambda: self.events.put("hold"), homebutton.HomeButton, repeat=True).start()
@@ -147,13 +166,37 @@ class Overlay:
         self.state = session.read()
         try:
             snapshot = self.audio.snapshot()
+            self._audio_error = None
         except (OSError, RuntimeError, ValueError) as e:
-            log.info("audio unavailable: %s", e)
+            if str(e) != self._audio_error:  # log once, not every refresh
+                log.warning("audio unavailable: %s", e)
+                self._audio_error = str(e)
             snapshot = Snapshot()
         discord = self.config.app("discord")
         ctx = Context(self.audio, snapshot, self.state, self.actions,
                       discord_available=bool(discord and discord.available()))
         self.menu.set_tabs(build_tabs(ctx))
+
+    # -- updates ---------------------------------------------------------------
+
+    def run_update(self) -> None:
+        log.info("update: starting")
+        ok = updates.run_helper("apply", logs.log_path())
+        updates.update_esde()
+        self.check_staged(failed=not ok)
+
+    def check_staged(self, failed: bool = False) -> None:
+        """Record whether an update is downloaded and waiting for a restart
+        (ours, or one Bazzite's automatic updater fetched in the background)."""
+        status = updates.os_status()
+        if status.update_ready:
+            result = {"status": "ready", "version": status.staged}
+        elif failed:
+            result = {"status": "failed"}
+        else:
+            result = {"status": "current"}
+        log.info("update: %s", result)
+        session.update(lambda s: s.__setitem__("update", result))
 
     # -- pause -----------------------------------------------------------------
 
@@ -171,6 +214,7 @@ class Overlay:
     # -- open/close ------------------------------------------------------------
 
     def open_menu(self) -> None:
+        self.config = load_config(self.config_path, self.config)
         self.state = session.read()
         fg = self.state["foreground"]
         if fg and not fg.get("home_button", True) and self.state["focus"] == "foreground":
@@ -200,9 +244,21 @@ class Overlay:
         if now - self._housekept < HOUSEKEEPING_SECONDS:
             return
         self._housekept = now
+        requests: list[str] = []
         self.state = session.read()
+        if self.state["requests"]:
+            self.state = session.update(lambda s: (requests.extend(s["requests"]), s.__setitem__("requests", [])))
+        for request in requests:
+            log.info("request: %s", request)
+            if request == "menu":
+                self.events.put("tap")
+            elif request == "home":
+                self.actions.go_home()
+                self.close_menu()
 
-        dead = [k for k, info in self.state["background"].items() if not session.background_alive(info)]
+        self._liveness_ticks = (self._liveness_ticks + 1) % 6  # every ~3 s: it runs systemctl
+        dead = [] if self._liveness_ticks else [
+            k for k, info in self.state["background"].items() if not session.background_alive(info)]
         if dead:
             def drop(s):
                 for k in dead:
@@ -216,6 +272,12 @@ class Overlay:
         if self.open and (self.state["foreground"] or {}).get("id") != self.opened_for:
             self.paused_unit = None
             self.close_menu()
+
+        # Look for a downloaded update now and then (it's slow: in a thread).
+        if now - self._update_checked > UPDATE_CHECK_SECONDS and \
+                (self.state.get("update") or {}).get("status") != "running":
+            self._update_checked = now
+            threading.Thread(target=self.check_staged, daemon=True).start()
 
         focus = self.state["focus"]
         self.pointer_active = (not self.open and focus in self.state["background"]
@@ -309,8 +371,7 @@ class Overlay:
             if self.menu.handle(nav) == "close":
                 self.close_menu()
                 break
-            self._refreshed = 0  # show the change's effect right away
-            self.refresh()
+            self._refreshed = min(self._refreshed, time.monotonic() - REFRESH_SECONDS + AFTER_CHANGE_SECONDS)
 
     def draw(self) -> None:
         r = self.renderer
@@ -336,29 +397,51 @@ class Overlay:
 
     def run(self) -> None:
         clock = self.pg.time.Clock()
+        failures: list[float] = []
         while True:
-            self.handle_events()
-            self.housekeeping()
-            target = 1.0 if self.open else 0.0
-            if self.t != target or self.open:
-                step = clock.get_time() / 1000 / ANIM_SECONDS
-                self.t = min(target, self.t + step) if target > self.t else max(target, self.t - step)
-                self.draw()
-                if self.t == 0.0 and not self.open:
-                    self._hidden()
-                clock.tick(60)
-            elif self.pointer_active:
-                self.pointer.tick(clock.get_time() / 1000)
-                clock.tick(120)
-            else:
-                clock.tick(20)
+            try:
+                self.step(clock)
+            except Exception:
+                # Keep the overlay alive through unexpected errors (a flaky
+                # pactl, an X error); give up only if it keeps failing.
+                log.exception("overlay error")
+                now = time.monotonic()
+                failures = [t for t in failures if now - t < 60] + [now]
+                if len(failures) > 10:
+                    raise
+                time.sleep(0.5)
+
+    def step(self, clock) -> None:
+        self.handle_events()
+        self.housekeeping()
+        target = 1.0 if self.open else 0.0
+        if self.t != target or self.open:
+            step = clock.get_time() / 1000 / ANIM_SECONDS
+            self.t = min(target, self.t + step) if target > self.t else max(target, self.t - step)
+            self.draw()
+            if self.t == 0.0 and not self.open:
+                self._hidden()
+            clock.tick(60)
+        elif self.pointer_active:
+            self.pointer.tick(clock.get_time() / 1000)
+            clock.tick(120)
+        else:
+            clock.tick(20)
+
+
+def load_config(path: Path | None, fallback: cfg.Config | None = None) -> cfg.Config:
+    try:
+        return cfg.load(path)
+    except (OSError, cfg.ConfigError) as e:
+        log.error("config: %s", e)
+        return fallback or cfg.Config(rows=())
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hearth-overlay", description="Hearth Quick Menu overlay")
     parser.add_argument("--config", type=Path)
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="hearth-overlay: %(message)s")
+    logs.setup("overlay")
 
     gs = Gamescope.connect()
     visual = gs.argb_visual() if gs else None
@@ -381,14 +464,17 @@ def main(argv: list[str] | None = None) -> int:
     window = video.Window(TITLE, size=size, position=(0, 0), borderless=True, hidden=True)
     renderer = video.Renderer(window)
     xwin = gs.find_window(TITLE) if gs else None
-    if gs and xwin:
-        gs.make_overlay(xwin)
-    else:
-        log.warning("not running under gamescope/X11: the Quick Menu can't be shown over apps")
+    if not (gs and xwin):
+        # Without gamescope's X11 there's no way to draw over apps; don't
+        # leave a stray window on the screen. Exit 0 so the hub doesn't
+        # restart us.
+        log.warning("not running under gamescope/X11: Quick Menu disabled")
+        return 0
+    gs.make_overlay(xwin)
     window.show()
 
-    config = cfg.load(args.config)
-    overlay = Overlay(config, gs, window, renderer, xwin, transparent=visual is not None)
+    overlay = Overlay(load_config(args.config), gs, window, renderer, xwin,
+                      transparent=visual is not None, config_path=args.config)
     try:
         overlay.run()
     finally:

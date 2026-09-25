@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# Hearth home screen / session hub. See /usr/share/hearth/apps.toml.
+# Hearth's command-line tool: status, diagnostics, logs, updates.
 export PYGAME_HIDE_SUPPORT_PROMPT=1
 export PYTHONPATH="/usr/lib/hearth/python${PYTHONPATH:+:$PYTHONPATH}"
 # `hearthctl dev PATH` runs the launcher from a source checkout instead.
@@ -7,4 +7,4 @@ dev=$(cat "${XDG_CONFIG_HOME:-$HOME/.config}/hearth/dev-path" 2>/dev/null)
 if [[ -n $dev && -f $dev/hearth/__init__.py ]]; then
     export PYTHONPATH="$dev:$PYTHONPATH"
 fi
-exec /usr/bin/python3 -m hearth "$@"
+exec /usr/bin/python3 -m hearth.ctl "$@"

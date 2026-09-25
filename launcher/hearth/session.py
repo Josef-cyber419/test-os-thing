@@ -39,10 +39,13 @@ def runtime_dir() -> Path:
 #   "background": {"<id>": {"name", "unit", "wm_class", "pointer"}},
 #   "focus": "home" | "foreground" | "<background id>",
 #   "overlay_open": bool,
-#   "paused": bool
+#   "paused": bool,
+#   "requests": ["menu" | "home", ...]   (from hearthctl; handled by the overlay)
+#   "update": {"status": "running" | "ready" | "current" | "failed", "version"} | null
 # }
 
-DEFAULT_STATE = {"foreground": None, "background": {}, "focus": "home", "overlay_open": False, "paused": False}
+DEFAULT_STATE = {"foreground": None, "background": {}, "focus": "home", "overlay_open": False,
+                 "paused": False, "requests": [], "update": None}
 
 
 def _state_path() -> Path:

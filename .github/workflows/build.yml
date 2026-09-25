@@ -30,7 +30,7 @@ jobs:
       - name: Shellcheck
         run: |
           pip install shellcheck-py
-          shellcheck -s bash image/build.sh image/system_files/usr/bin/hearth \
+          shellcheck -s bash image/build.sh image/system_files/usr/bin/* \
             image/system_files/usr/libexec/hearth/hearth-* \
             image/system_files/usr/libexec/hearth/shims/* \
             image/system_files/usr/lib/systemd/system-sleep/hearth-cec \
@@ -67,6 +67,7 @@ jobs:
           echo "IMAGE=$image" >> "$GITHUB_ENV"
           podman build \
             --build-arg BASE_IMAGE=${{ matrix.base }} \
+            --build-arg HEARTH_VERSION="$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}" \
             --tag "$image:latest" \
             --tag "$image:${{ github.sha }}" \
             .

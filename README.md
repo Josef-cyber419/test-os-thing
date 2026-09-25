@@ -57,8 +57,12 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   [`apps.toml`](image/system_files/usr/share/hearth/apps.toml) to
   `~/.config/hearth/apps.toml` and edit. Tiles for apps that aren't installed are
   hidden automatically.
-- **Atomic and reversible**: every update is a new image; roll back from the boot
-  menu or with `sudo bootc rollback`.
+- **Updates itself**: OS and apps update automatically in the background (the
+  home screen tells you when a restart will finish one), or on demand from the
+  Quick Menu. Every update can be rolled back.
+- **Easy to fix**: `hearthctl doctor` checks the whole setup and tells you how to
+  fix problems; `hearthctl logs` has the details. See
+  [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Getting started
 
@@ -86,6 +90,9 @@ navigate; Tab jumps to the System row; Esc on the first tile quits.
 ```sh
 cd launcher && SDL_VIDEODRIVER=dummy pytest -q
 ```
+
+With `Xvfb` installed, this includes an end-to-end run of the real home screen
+and Quick Menu with fake apps (`tests/test_e2e.py`).
 
 ## Project status
 

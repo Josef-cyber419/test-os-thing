@@ -139,6 +139,7 @@ class Actions(Protocol):
     def show(self, target: str) -> str | None: ...
     def stop_background(self, app_id: str) -> str | None: ...
     def power(self, action: str) -> str | None: ...
+    def update(self) -> str | None: ...
 
 
 @dataclass
@@ -262,7 +263,24 @@ def _system_tab(ctx: Context) -> Tab:
     if fg:
         tab.items.append(Item("home", "Close " + fg["name"], "action", confirm=True,
                               detail="Return to the home screen", on_select=act.go_home))
+    tab.items.append(_update_item(ctx))
     tab.items.append(Item("sleep", "Sleep", "action", on_select=lambda: act.power("suspend")))
     tab.items.append(Item("restart", "Restart", "action", confirm=True, on_select=lambda: act.power("reboot")))
     tab.items.append(Item("poweroff", "Power off", "action", confirm=True, on_select=lambda: act.power("poweroff")))
     return tab
+
+
+def _update_item(ctx: Context) -> Item:
+    update = ctx.state.get("update") or {}
+    status = update.get("status")
+    if status == "running":
+        return Item("update", "Updating…", "info", detail="Keep playing; it finishes in the background")
+    if status == "ready":
+        return Item("update", "Restart to finish update", "action", confirm=True,
+                    detail=f"Version {update.get('version') or 'new'} is downloaded",
+                    on_select=lambda: ctx.actions.power("reboot"))
+    if status == "failed":
+        return Item("update", "Update failed: try again", "action",
+                    detail="Details: hearthctl logs", on_select=ctx.actions.update)
+    detail = "Up to date" if status == "current" else "Updates also install automatically"
+    return Item("update", "Check for updates", "action", detail=detail, on_select=ctx.actions.update)

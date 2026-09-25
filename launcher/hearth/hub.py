@@ -22,7 +22,7 @@ from pathlib import Path
 import pygame
 
 from . import config as cfg
-from . import homebutton, session, ui
+from . import homebutton, logs, session, ui
 from .gamescope import HOME_APPID, Gamescope
 from .model import Home
 
@@ -147,7 +147,10 @@ class OverlayProcess:
         self.proc: subprocess.Popen | None = None
 
     def ensure(self) -> None:
-        if self.proc is None or self.proc.poll() is not None:
+        # Exit code 0 means "can't run here" (no gamescope): don't retry.
+        if self.proc is None or self.proc.poll() not in (None, 0):
+            if self.proc is not None:
+                log.warning("Quick Menu overlay exited (%s); restarting", self.proc.returncode)
             self.proc = subprocess.Popen(self.args)
 
 
@@ -160,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--overlay", action=argparse.BooleanOptionalAction, default=None,
                         help="run the Quick Menu overlay (default: on under gamescope)")
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="hearth: %(message)s")
+    logs.setup("hub")
 
     in_gamescope = bool(os.environ.get("GAMESCOPE_WAYLAND_DISPLAY"))
     gs = Gamescope.connect() if in_gamescope else None
@@ -169,42 +172,65 @@ def main(argv: list[str] | None = None) -> int:
     session.update(lambda s: s.update(copy.deepcopy(session.DEFAULT_STATE), background=s["background"]))
 
     dev_mode = args.windowed or args.dry_run
-    last_id: str | None = None
-    message: str | None = None
-    surface: pygame.Surface | None = None
+    state = {"last_id": None, "message": None, "surface": None}
+    failures: list[float] = []
     while True:
         try:
-            config = cfg.load(args.config)
-        except (OSError, cfg.ConfigError) as e:
-            log.error("config: %s", e)
-            config = cfg.Config(rows=())
-            message = f"Config error: {e}"
-        if not args.show_all:
-            config = config.visible()
-        if overlay:
-            overlay.ensure()
+            if step(args, gs, overlay, dev_mode, state) == "quit":
+                return 0
+        except Exception as e:
+            # Never take the whole TV session down: log it, show it, carry on.
+            # (If it keeps failing, give up and let gamescope-session fall
+            # back to the desktop.)
+            log.exception("home screen error")
+            now = time.monotonic()
+            failures = [t for t in failures if now - t < 60] + [now]
+            if len(failures) > 5:
+                raise
+            pygame.quit()
+            state["surface"] = None
+            state["message"] = f"Something went wrong ({type(e).__name__}); details: hearthctl logs"
 
-        home = Home(config)
-        if last_id:
-            home.select_id(last_id)
 
-        if surface is None:
-            surface = open_display(args.windowed)
-        show_home(gs)
-        app = ui.run(surface, home, config.title, message=message, allow_quit=dev_mode,
-                     input_blocked=lambda: session.read()["overlay_open"])
-        message = None
-        if app is None:
-            return 0
-        last_id = app.id
+def step(args, gs: Gamescope | None, overlay: OverlayProcess | None, dev_mode: bool, state: dict) -> str | None:
+    """One round of: show the home screen, then run what was picked."""
+    try:
+        config = cfg.load(args.config)
+    except (OSError, cfg.ConfigError) as e:
+        log.error("config: %s", e)
+        config = cfg.Config(rows=())
+        state["message"] = f"Config error: {e}"
+    if not args.show_all:
+        config = config.visible()
+    if overlay:
+        overlay.ensure()
 
-        if app.background and not args.dry_run:
-            # The home screen stays open behind it; the Quick Menu or a held
-            # Guide button brings it back.
-            show_background(app, gs)
-            continue
+    home = Home(config)
+    if state["last_id"]:
+        home.select_id(state["last_id"])
 
-        # Release the screen (and input devices) so the app gets them.
-        pygame.quit()
-        surface = None
-        message = launch(app, dry_run=args.dry_run, gs=gs)
+    if state["surface"] is None:
+        state["surface"] = open_display(args.windowed)
+    show_home(gs)
+    current = session.read()
+    ready = (current.get("update") or {}).get("status") == "ready"
+    app = ui.run(state["surface"], home, config.title, message=state["message"], allow_quit=dev_mode,
+                 input_blocked=lambda: session.read()["overlay_open"],
+                 badge="Update ready: restart to finish" if ready else None,
+                 running=set(current["background"]))
+    state["message"] = None
+    if app is None:
+        return "quit"
+    state["last_id"] = app.id
+
+    if app.background and not args.dry_run:
+        # The home screen stays open behind it; the Quick Menu or a held
+        # Guide button brings it back.
+        show_background(app, gs)
+        return None
+
+    # Release the screen (and input devices) so the app gets them.
+    pygame.quit()
+    state["surface"] = None
+    state["message"] = launch(app, dry_run=args.dry_run, gs=gs)
+    return None

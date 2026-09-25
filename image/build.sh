@@ -41,7 +41,24 @@ fi
 systemctl enable hearth-flatpak-setup.service hearth-cec-poweroff.service
 systemctl --global enable hearth-esde-update.timer
 
+# --- automatic updates --------------------------------------------------------
+# Bazzite's deck images turn off their updater and leave updates to Steam's
+# "System Update" button. Hearth runs first instead of Steam, so turn
+# Bazzite's regular updater back on (OS image + Flatpaks, in the background).
+if [[ -e /usr/lib/systemd/system/uupd.timer ]]; then
+    systemctl enable uupd.timer
+else
+    echo "build.sh: uupd.timer not found; enabling bootc's update timer instead" >&2
+    systemctl enable bootc-fetch-apply-updates.timer
+fi
+
+# --- version ------------------------------------------------------------------
+cat > /usr/share/hearth/version.json <<JSON
+{"version": "${HEARTH_VERSION:-dev}", "built": "$(date -u +%Y-%m-%dT%H:%MZ)"}
+JSON
+
 # --- sanity checks ------------------------------------------------------------
+visudo -cf /etc/sudoers.d/hearth
 python3 -m compileall -q /usr/lib/hearth/python
 PYTHONPATH=/usr/lib/hearth/python python3 -c \
     'import hearth.config as c; c.load(c.SYSTEM_CONFIG)'

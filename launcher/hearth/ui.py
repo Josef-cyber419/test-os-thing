@@ -66,6 +66,8 @@ class HomeScreen:
         self.background = self._make_background()
         self.confirming: App | None = None
         self.message: str | None = None
+        self.badge: str | None = None
+        self.running: set[str] = set()  # background apps, marked on their tiles
         self._icons: dict[str, pygame.Surface | None] = {}
         self._scroll_x: list[float] = [0.0] * len(home.config.rows)
         self._scroll_y = 0.0
@@ -150,7 +152,14 @@ class HomeScreen:
         title = th.font_title.render(self.title, True, TEXT)
         self.surface.blit(title, (th.margin, int(th.header_h * 0.25)))
         clock = th.font_title.render(time.strftime("%H:%M"), True, TEXT)
-        self.surface.blit(clock, (th.width - th.margin - clock.get_width(), int(th.header_h * 0.25)))
+        clock_x = th.width - th.margin - clock.get_width()
+        self.surface.blit(clock, (clock_x, int(th.header_h * 0.25)))
+        if self.badge:
+            text = th.font_hint.render(self.badge, True, (28, 20, 12))
+            chip = text.get_rect().inflate(th.gap, th.gap // 2)
+            chip.midright = (clock_x - th.gap, int(th.header_h * 0.25) + clock.get_height() // 2)
+            pygame.draw.rect(self.surface, ACCENT, chip, border_radius=chip.h // 2)
+            self.surface.blit(text, text.get_rect(center=chip.center))
 
     def _draw_row(self, r: int, y: int) -> None:
         th = self.theme
@@ -196,12 +205,16 @@ class HomeScreen:
                 name, (rect.w - 2 * th.gap, int(name.get_height() * (rect.w - 2 * th.gap) / name.get_width()))
             )
         s.blit(name, name.get_rect(midbottom=(rect.centerx, rect.bottom - th.gap // 2)))
+        if app.id in self.running:
+            dot = (rect.right - th.gap, rect.y + th.gap)
+            pygame.draw.circle(s, (0, 0, 0), dot, th.gap // 3 + 2)
+            pygame.draw.circle(s, (67, 214, 120), dot, th.gap // 3)
         if focused:
             pygame.draw.rect(s, ACCENT, rect, width=th.border, border_radius=th.radius)
 
     def _draw_hints(self) -> None:
         th = self.theme
-        text = self.message or "[A] Open     [B] Back     [Start] Power & System"
+        text = self.message or "[A] Open     [B] Back     [Start] System     [Guide] Quick Menu"
         hint = th.font_hint.render(text, True, ACCENT if self.message else TEXT_DIM)
         self.surface.blit(hint, (th.margin, th.height - (th.footer_h + hint.get_height()) // 2))
 
@@ -228,6 +241,8 @@ def run(
     allow_quit: bool = False,
     max_frames: int | None = None,
     input_blocked: Callable[[], bool] | None = None,
+    badge: str | None = None,
+    running: set[str] | None = None,
 ) -> App | None:
     """Show the home screen until the user picks an app.
 
@@ -237,6 +252,8 @@ def run(
     """
     screen = HomeScreen(surface, home, title)
     screen.message = message
+    screen.badge = badge
+    screen.running = running or set()
     mapper = InputMapper()
     mapper.open_devices()
     clock = pygame.time.Clock()
@@ -245,7 +262,9 @@ def run(
     while max_frames is None or frames < max_frames:
         frames += 1
         if input_blocked and frames % 8 == 0:
-            blocked = input_blocked()
+            was_blocked, blocked = blocked, input_blocked()
+            if blocked and not was_blocked:
+                mapper.reset()
         now = pygame.time.get_ticks()
         navs: list[Nav] = []
         for event in pygame.event.get():
@@ -255,7 +274,7 @@ def run(
             if nav is not None and not blocked:
                 navs.append(nav)
         repeat = mapper.repeat(now)
-        if repeat is not None:
+        if repeat is not None and not blocked:
             navs.append(repeat)
         for nav in navs:
             if nav is Nav.BACK and allow_quit and screen.confirming is None and home.row == 0 and home.col == 0:

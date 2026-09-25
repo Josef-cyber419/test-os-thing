@@ -1,8 +1,25 @@
 """Loading the home-screen layout from apps.toml.
 
-The system default lives in /usr/share/hearth/apps.toml (shipped in the image).
-A user copy at ~/.config/hearth/apps.toml fully replaces it, so customising the
-home screen never requires rebuilding the OS image.
+The defaults live in /usr/share/hearth/apps.toml (shipped in the image, and
+updated with it). Your changes go in ~/.config/hearth/apps.toml and are layered
+on top, so you keep getting new default tiles after updates:
+
+    hide = ["plex", "android"]        # remove default tiles by id
+
+    [[rows]]
+    title = "Watch"                   # same title: add to / change that row
+      [[rows.apps]]
+      id = "kodi"                     # same id: change just these fields
+      color = "#000000"
+      [[rows.apps]]
+      id = "twitch"                   # new id: a new tile
+      name = "Twitch"
+      flatpak = "tv.twitch.Twitch"
+
+    [[rows]]
+    title = "Mine"                    # new title: a new row, before System
+
+Put `replace = true` at the top to ignore the defaults entirely.
 """
 
 from __future__ import annotations
@@ -60,14 +77,22 @@ class App:
     # which does this itself.
     tag_windows: bool = True
 
+    def missing(self) -> str | None:
+        """Why this tile is hidden, or None if it can be shown."""
+        if self.flatpak and not any((d / self.flatpak).is_dir() for d in flatpak_dirs()):
+            return f"Flatpak {self.flatpak} not installed"
+        for pattern in self.requires_files:
+            # May be a glob pattern and may start with ~.
+            if not glob.glob(os.path.expanduser(pattern)):
+                return f"{pattern} not found"
+        for command in self.requires:
+            if not shutil.which(command):
+                return f"command {command} not found"
+        return None
+
     def available(self) -> bool:
         """Hide tiles whose program isn't installed instead of failing on launch."""
-        if self.flatpak and not any((d / self.flatpak).is_dir() for d in flatpak_dirs()):
-            return False
-        # Each entry may be a glob pattern and may start with ~.
-        if not all(glob.glob(os.path.expanduser(f)) for f in self.requires_files):
-            return False
-        return all(shutil.which(req) for req in self.requires)
+        return self.missing() is None
 
 
 @dataclass(frozen=True)
@@ -162,13 +187,50 @@ def parse(data: dict) -> Config:
     )
 
 
-def load(path: Path | None = None) -> Config:
-    if path is None:
-        user = user_config_path()
-        path = user if user.exists() else SYSTEM_CONFIG
+def _read(path: Path) -> dict:
     with open(path, "rb") as f:
         try:
-            data = tomllib.load(f)
+            return tomllib.load(f)
         except tomllib.TOMLDecodeError as e:
             raise ConfigError(f"{path}: {e}") from e
-    return parse(data)
+
+
+def merge(base: dict, user: dict) -> dict:
+    """Layer user changes over the defaults (see the module docstring)."""
+    if user.get("replace"):
+        return user
+    merged = {**base, **{k: v for k, v in user.items() if k not in ("rows", "hide", "quick_menu")}}
+    merged["quick_menu"] = {**base.get("quick_menu", {}), **user.get("quick_menu", {})}
+    rows = [{**r, "apps": [dict(a) for a in r.get("apps", [])]} for r in base.get("rows", [])]
+    by_title = {r.get("title"): r for r in rows}
+    new_rows = []
+    for urow in user.get("rows", []):
+        row = by_title.get(urow.get("title"))
+        if row is None:
+            new_rows.append({**urow, "apps": [dict(a) for a in urow.get("apps", [])]})
+            continue
+        by_id = {a.get("id"): a for a in row["apps"]}
+        for uapp in urow.get("apps", []):
+            if uapp.get("id") in by_id:
+                by_id[uapp["id"]].update(uapp)
+            else:
+                row["apps"].append(dict(uapp))
+    # New rows go before the last default row (System), which stays last so
+    # the Menu button still jumps to it.
+    rows = rows[:-1] + new_rows + rows[-1:] if rows else new_rows
+    hidden = set(user.get("hide", []))
+    for row in rows:
+        row["apps"] = [a for a in row["apps"] if a.get("id") not in hidden]
+    merged["rows"] = [r for r in rows if r["apps"]]
+    return merged
+
+
+def load(path: Path | None = None) -> Config:
+    """An explicit path is used as-is; otherwise defaults + your changes."""
+    if path is not None:
+        return parse(_read(path))
+    user = user_config_path()
+    base = _read(SYSTEM_CONFIG) if SYSTEM_CONFIG.exists() else {}
+    if user.exists():
+        return parse(merge(base, _read(user)))
+    return parse(base)

@@ -59,16 +59,9 @@ plain Bazzite.
   plugged in, it's configured automatically. Change the behaviour in
   `/etc/hearth/cec.conf`.
 
-## Customising the home screen
+## Customising, updates and fixing things
 
-```sh
-mkdir -p ~/.config/hearth
-cp /usr/share/hearth/apps.toml ~/.config/hearth/apps.toml
-```
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md): how updates work, `hearthctl`
+(status, diagnostics, logs, rollback), and customising the home screen.
 
-Edit the copy: reorder rows, add tiles for other flatpaks (`flatpak = "app.id"`)
-or commands, set colors and icons. It takes effect the next time you return to
-the home screen. The comments at the top of the file list every option.
-
-To boot straight into Steam again instead of Hearth, remove the override:
-`sudo rm /etc/gamescope-session-plus/sessions.d/{steam,ogui-steam}`.
+To boot straight into Steam instead of Hearth: `hearthctl disable`, then restart.

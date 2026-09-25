@@ -1,0 +1,24 @@
+#!/usr/bin/bash
+# Privileged helper (allowed via /etc/sudoers.d/hearth) for updating from the
+# Quick Menu or `hearthctl update`. Only these fixed actions are accepted.
+#   apply     download and stage the latest OS image, update Flatpak apps.
+#             The new OS takes effect on the next restart.
+#   rollback  boot the previous OS image on the next restart.
+set -euo pipefail
+case "${1:-}" in
+    apply)
+        if command -v uupd >/dev/null; then
+            # Bazzite's updater, with the same options Steam's "System Update" uses.
+            exec uupd --hw-check=false --disable-module-brew --disable-module-distrobox
+        fi
+        bootc upgrade
+        exec flatpak update --system --noninteractive
+        ;;
+    rollback)
+        exec bootc rollback
+        ;;
+    *)
+        echo "usage: hearth-update apply|rollback" >&2
+        exit 2
+        ;;
+esac

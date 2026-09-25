@@ -2,6 +2,9 @@
 # gamescope-session-plus sources this after the stock session config in
 # /usr/share/gamescope-session-plus/sessions.d, so every Game Mode setting
 # (HDR, VRR, resolution, env vars) is kept and only the client changes.
-# Steam is launched from Hearth's Steam tile. Delete this file to go back
-# to booting straight into Steam.
-export CLIENTCMD="/usr/bin/hearth"
+# Steam is launched from Hearth's Steam tile.
+#
+# To boot straight into Steam instead (no root needed): `hearthctl disable`.
+if [ ! -e "${XDG_CONFIG_HOME:-$HOME/.config}/hearth/disabled" ]; then
+    export CLIENTCMD="/usr/bin/hearth"
+fi

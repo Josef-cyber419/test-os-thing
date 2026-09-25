@@ -79,6 +79,10 @@ the menu is open), written under a file lock.
 | `launcher/hearth/gamescope.py` | X11 properties: `STEAM_GAME` tags, `GAMESCOPECTRL_BASELAYER_APPID` focus, overlay flags. |
 | `launcher/hearth/session.py` | Shared state file, systemd scopes (spawn, freeze, thaw, stop), which app owns a PID. |
 | `launcher/hearth/pointer.py` | Controller → virtual mouse/keyboard (uinput) for apps without a TV interface. |
+| `launcher/hearth/updates.py` | OS version and staged updates (`rpm-ostree status`), running updates through `hearth-update`. |
+| `launcher/hearth/ctl.py` | `hearthctl`: status, doctor, logs, update, rollback, enable/disable, dev mode. |
+| `launcher/hearth/logs.py` | Log to the journal and `~/.local/state/hearth/hearth.log` (rotated). |
+| `usr/libexec/hearth/hearth-update` | Root helper (narrow sudoers rule): run Bazzite's `uupd`, or `bootc rollback`. |
 | `launcher/hearth/ui.py` | Rendering (tiles, rows, header, confirm dialog). Sizes derived from screen height. |
 | `launcher/hearth/model.py` | Navigation state (rows remember their column). No pygame, easy to test. |
 | `launcher/hearth/input.py` | Keyboard / CEC / FLIRC / gamepad → `Nav` actions, stick auto-repeat. |
@@ -105,6 +109,22 @@ gamescope shows one app full-screen at a time, and TV users expect "close app �
 home". Running apps one at a time from a loop gives exactly that, frees the GPU
 and controllers for the app, and makes failures easy to report (the next home
 screen shows what went wrong).
+
+## Testing
+
+- **Unit tests** (`launcher/tests/`): config parsing and layering, navigation,
+  input mapping, audio (against recorded `pactl` output), Quick Menu logic,
+  session state, updates, `hearthctl`.
+- **X11 integration** (`test_x11.py`, needs Xvfb): gamescope window
+  properties, and the real overlay opening with true transparency.
+- **End to end** (`test_e2e.py`, needs Xvfb): the real hub and overlay with
+  fake apps, driven by key presses and `hearthctl`: launch a game, open the
+  Quick Menu over it, start Discord in the background, switch back, go home.
+  Each step is checked through the properties gamescope reads.
+  `HEARTH_E2E_SHOTS=dir` saves composited screenshots.
+
+What these can't cover is gamescope itself, real controllers, PipeWire and
+systemd scopes. That's the list below.
 
 ## Verify on real hardware
 

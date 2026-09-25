@@ -53,14 +53,18 @@ JOY_BUTTONS = {0: Nav.SELECT, 1: Nav.BACK, 4: Nav.TAB_PREV, 5: Nav.TAB_NEXT, 7: 
 AXIS_THRESHOLD = 0.6
 AXIS_REPEAT_DELAY_MS = 400
 AXIS_REPEAT_RATE_MS = 120
+DIRECTIONS = {Nav.UP, Nav.DOWN, Nav.LEFT, Nav.RIGHT}
 
 
 class InputMapper:
-    """Stateful translator: analog sticks need edge detection and auto-repeat."""
+    """Stateful translator: analog sticks need edge detection, and held
+    directions (stick, d-pad, arrow keys) auto-repeat."""
 
     def __init__(self) -> None:
         self._stick: Nav | None = None
         self._stick_next_ms = 0
+        self._held: Nav | None = None
+        self._held_next_ms = 0
         self._devices: dict[int, object] = {}
 
     def open_devices(self) -> None:
@@ -90,13 +94,19 @@ class InputMapper:
     def translate(self, event: pygame.event.Event, now_ms: int = 0) -> Nav | None:
         t = event.type
         if t == pygame.KEYDOWN:
-            return KEYS.get(event.key)
+            return self._press(KEYS.get(event.key), now_ms)
+        if t == pygame.KEYUP:
+            self._release(KEYS.get(event.key))
+            return None
         if t == pygame.CONTROLLERDEVICEADDED or t == pygame.JOYDEVICEADDED:
             if t == pygame.JOYDEVICEADDED:
                 self._open(event.device_index)
             return None
         if t == pygame.CONTROLLERBUTTONDOWN:
-            return BUTTONS.get(event.button)
+            return self._press(BUTTONS.get(event.button), now_ms)
+        if t == pygame.CONTROLLERBUTTONUP:
+            self._release(BUTTONS.get(event.button))
+            return None
         if t == pygame.CONTROLLERAXISMOTION:
             if event.axis == pygame.CONTROLLER_AXIS_LEFTX:
                 return self._stick_axis(event.value / 32767, Nav.LEFT, Nav.RIGHT, now_ms)
@@ -122,6 +132,15 @@ class InputMapper:
             return self._stick_axis(event.value, neg, pos, now_ms)
         return None
 
+    def _press(self, nav: Nav | None, now_ms: int) -> Nav | None:
+        if nav in DIRECTIONS:
+            self._held, self._held_next_ms = nav, now_ms + AXIS_REPEAT_DELAY_MS
+        return nav
+
+    def _release(self, nav: Nav | None) -> None:
+        if nav is not None and nav == self._held:
+            self._held = None
+
     def _stick_axis(self, value: float, neg: Nav, pos: Nav, now_ms: int) -> Nav | None:
         if abs(value) < AXIS_THRESHOLD:
             if self._stick in (neg, pos):
@@ -135,8 +154,15 @@ class InputMapper:
         return None
 
     def repeat(self, now_ms: int) -> Nav | None:
-        """Called every frame: emits a repeat while the stick stays held."""
+        """Called every frame: emits a repeat while a direction stays held."""
         if self._stick is not None and now_ms >= self._stick_next_ms:
             self._stick_next_ms = now_ms + AXIS_REPEAT_RATE_MS
             return self._stick
+        if self._held is not None and now_ms >= self._held_next_ms:
+            self._held_next_ms = now_ms + AXIS_REPEAT_RATE_MS
+            return self._held
         return None
+
+    def reset(self) -> None:
+        """Forget held directions (e.g. when input focus moves elsewhere)."""
+        self._stick = self._held = None

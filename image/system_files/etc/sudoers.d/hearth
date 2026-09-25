@@ -1,0 +1,3 @@
+# Let Hearth (Quick Menu, hearthctl) install updates and roll back without a
+# password prompt, which a TV remote can't answer. Fixed actions only.
+%wheel ALL=(root) NOPASSWD: /usr/libexec/hearth/hearth-update apply, /usr/libexec/hearth/hearth-update rollback
